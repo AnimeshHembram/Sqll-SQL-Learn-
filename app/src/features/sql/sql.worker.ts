@@ -3,18 +3,27 @@
  * UI thread. Holds one session database, created from bookstore.sql, that keeps
  * the learner's changes until it is reset.
  *
+ * It also evaluates challenge submissions. The reference queries are imported
+ * here, inside the worker, so they never pass through the page: the page sends
+ * a challenge id and the learner's SQL, and gets back feedback and the learner's
+ * own result.
+ *
  * Requests are processed one at a time, in the order they arrive.
  */
 
 import initSqlJs, { type Database, type SqlJsStatic } from 'sql.js'
 import wasmUrl from 'sql.js/dist/sql-wasm-browser.wasm?url'
+import { solutions } from 'virtual:sql-learner-challenge-solutions'
 import bookstoreSql from '../../content/datasets/bookstore.sql?raw'
+import type { ChallengeSolution } from '../../content/types.ts'
+import { evaluateRun, type RunOutcome } from '../challenges/evaluate.ts'
 import {
   MAX_ROWS_COUNTED,
   MAX_ROWS_RETURNED,
   type CellValue,
   type ColumnInfo,
   type EngineInfo,
+  type EvaluationResult,
   type ExecuteResult,
   type StatementResult,
   type TableInfo,
@@ -94,6 +103,37 @@ function execute(database: Database, sql: string): ExecuteResult {
   return { statements, error: null, durationMs: performance.now() - started }
 }
 
+/**
+ * Runs SQL on a brand-new copy of the dataset that refuses writes
+ * (PRAGMA query_only), then discards it. Used for challenge evaluation, so a
+ * submission can never affect the practice database, the reference query or
+ * the next submission.
+ */
+async function isolatedRun(sql: string): Promise<ExecuteResult> {
+  const database = await freshDatabase()
+  try {
+    database.exec('PRAGMA query_only = ON')
+    return execute(database, sql)
+  } finally {
+    database.close()
+  }
+}
+
+function toOutcome({ statements, error }: ExecuteResult): RunOutcome {
+  return {
+    statements: statements.map(({ columns, rows, totalRows }) => ({ columns, rows, totalRows })),
+    error: error?.message ?? null,
+  }
+}
+
+async function evaluate(challengeId: string, sql: string): Promise<EvaluationResult> {
+  const solution = (solutions as Record<string, ChallengeSolution | undefined>)[challengeId]
+  if (!solution) throw new Error(`There is no challenge "${challengeId}".`)
+  const result = await isolatedRun(sql)
+  const reference = await isolatedRun(solution.sql)
+  return { feedback: evaluateRun(toOutcome(result), toOutcome(reference), solution.evaluation), result }
+}
+
 function quoteIdentifier(name: string): string {
   return `"${name.replaceAll('"', '""')}"`
 }
@@ -147,6 +187,8 @@ async function handle(request: WorkerRequest): Promise<unknown> {
     }
     case 'schema':
       return readSchema(await sessionDatabase())
+    case 'evaluate':
+      return evaluate(request.challengeId, request.sql)
   }
 }
 

@@ -1,0 +1,41 @@
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--space-4);
+  margin-bottom: var(--space-4);
+}
+
+.field {
+  display: grid;
+  gap: var(--space-1);
+  min-width: min(100%, 12rem);
+}
+
+.field label {
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+}
+
+.field select {
+  min-height: 2.5rem;
+  padding: 0 var(--space-3);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font: inherit;
+}
+
+.count {
+  margin-bottom: var(--space-4);
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
+}
+
+.note {
+  max-width: var(--reading-max-width);
+  margin-top: var(--space-6);
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
+}

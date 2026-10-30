@@ -16,9 +16,10 @@ export function SchemaExplorer({ tables, onQueryTable }: SchemaExplorerProps) {
 
   return (
     <ul className={styles.list}>
-      {tables.map((table) => (
+      {tables.map((table, index) => (
         <li key={table.name}>
-          <details className={styles.table} open={tables.length <= 3}>
+          {/* Small databases open fully; larger ones open the first table and list the rest. */}
+          <details className={styles.table} open={tables.length <= 3 || index === 0}>
             <summary className={styles.summary}>
               <span className={styles.name}>{table.name}</span>
               <span className={styles.meta}>

@@ -13,7 +13,9 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "check:examples": "node --disable-warning=ExperimentalWarning scripts/check-examples.ts",
-    "check": "npm run lint && npm run check:examples && npm run build"
+    "check:challenges": "node --disable-warning=ExperimentalWarning scripts/check-challenges.ts",
+    "test:evaluation": "node --disable-warning=ExperimentalWarning --test scripts/test-evaluation.ts",
+    "check": "npm run lint && npm run check:examples && npm run check:challenges && npm run test:evaluation && npm run build"
   },
   "dependencies": {
     "@codemirror/autocomplete": "^6.20.3",

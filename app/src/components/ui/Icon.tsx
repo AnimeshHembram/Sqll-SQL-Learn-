@@ -5,6 +5,7 @@ export type IconName =
   | 'learn'
   | 'practice'
   | 'challenges'
+  | 'quiz'
   | 'reference'
   | 'settings'
   | 'menu'
@@ -27,6 +28,13 @@ const PATHS: Record<IconName, ReactNode> = {
     </>
   ),
   challenges: <path d="M6 21V4m0 0h11l-2.5 4L17 12H6" />,
+  quiz: (
+    <>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .9-1 1.6v.6" />
+      <path d="M12 17h.01" />
+    </>
+  ),
   reference: (
     <>
       <rect x="3" y="4" width="18" height="16" rx="2" />

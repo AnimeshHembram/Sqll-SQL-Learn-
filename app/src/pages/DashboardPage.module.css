@@ -54,6 +54,29 @@
   font-size: var(--text-sm);
 }
 
+/* Challenges and quizzes */
+.buttons {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+.buttons .moduleLink {
+  font-size: var(--text-md);
+}
+
+.quizzes {
+  display: grid;
+  gap: var(--space-3);
+  padding: 0;
+  list-style: none;
+}
+
+.quizzes .moduleLink {
+  font-size: var(--text-md);
+}
+
 .path {
   display: grid;
   gap: var(--space-4);
@@ -105,7 +128,13 @@
   }
 
   .path {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: var(--space-6);
+  }
+}
+
+@media (min-width: 72rem) {
+  .path {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 }

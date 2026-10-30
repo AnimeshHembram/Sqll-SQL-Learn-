@@ -45,6 +45,13 @@ export const NAV = {
     description: 'Exercises that check your answer and show you where to improve.',
     icon: 'challenges',
   },
+  quizzes: {
+    path: '/quizzes',
+    label: 'Quizzes',
+    title: 'Quizzes',
+    description: 'Short multiple-choice quizzes to check your understanding of SQL concepts.',
+    icon: 'quiz',
+  },
   reference: {
     path: '/reference',
     label: 'SQL Reference',
@@ -67,6 +74,7 @@ export const PRIMARY_NAV: readonly NavItem[] = [
   NAV.learn,
   NAV.practice,
   NAV.challenges,
+  NAV.quizzes,
   NAV.reference,
 ]
 

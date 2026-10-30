@@ -8,14 +8,23 @@ import {
   MODULES,
   describeModule,
   findFirstLesson,
+  formatLevel,
   lessonPath,
   modulePath,
 } from '../content/index.ts'
+import {
+  CHALLENGES,
+  QUIZZES,
+  challengePath,
+  describeChallengeLevels,
+  firstBeginnerChallenge,
+  quizPath,
+} from '../content/challenges.ts'
 import { recallLastLesson } from '../content/lastLesson.ts'
 import styles from './DashboardPage.module.css'
 
-/** The three sections a learner moves through, in order. */
-const LEARNING_PATH = [NAV.learn, NAV.practice, NAV.challenges]
+/** The sections a learner moves through, in order. */
+const LEARNING_PATH = [NAV.learn, NAV.practice, NAV.challenges, NAV.quizzes]
 
 export function DashboardPage() {
   return (
@@ -62,6 +71,29 @@ export function DashboardPage() {
           )}
         </Card>
 
+        <Card title="Challenges">
+          <ChallengeEntry />
+        </Card>
+
+        <Card title="Quizzes">
+          {QUIZZES.length === 0 ? (
+            <EmptyState title="No quizzes yet">Quizzes will be listed here as they are added.</EmptyState>
+          ) : (
+            <ul className={styles.quizzes}>
+              {QUIZZES.map((quiz) => (
+                <li key={quiz.id}>
+                  <Link to={quizPath(quiz.id)} className={styles.moduleLink}>
+                    {quiz.title}
+                  </Link>
+                  <p className={styles.moduleMeta}>
+                    {formatLevel(quiz.difficulty)}, {quiz.questions.length} questions
+                  </p>
+                </li>
+              ))}
+            </ul>
+          )}
+        </Card>
+
         <Card title="How SQL Learner works" className={styles.wide}>
           <ol className={styles.path}>
             {LEARNING_PATH.map((item) => (
@@ -76,6 +108,31 @@ export function DashboardPage() {
         </Card>
       </div>
     </>
+  )
+}
+
+/** How many challenges exist, and where a beginner should start. Counts come from the content, not from progress. */
+function ChallengeEntry() {
+  const first = firstBeginnerChallenge()
+  if (!first) {
+    return <EmptyState title="No challenges yet">Challenges will appear here once they are added.</EmptyState>
+  }
+  return (
+    <div className={styles.continue}>
+      <p className={styles.continueSummary}>
+        {CHALLENGES.length} challenges to solve: {describeChallengeLevels()}. Each one checks your query's result automatically.
+      </p>
+      <p className={styles.continueLesson}>Start here: {first.title}</p>
+      <p className={styles.continueSummary}>{first.summary}</p>
+      <div className={styles.buttons}>
+        <Button to={challengePath(first.id)} variant="secondary">
+          Start the first challenge
+        </Button>
+        <Link to={NAV.challenges.path} className={styles.moduleLink}>
+          Browse all challenges
+        </Link>
+      </div>
+    </div>
   )
 }
 

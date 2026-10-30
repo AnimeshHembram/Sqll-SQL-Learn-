@@ -36,6 +36,7 @@
 
   /* Colour: status */
   --color-danger: #b42318; /* text and borders for "this query causes an error" */
+  --color-success: #1b7a34; /* text and borders for a correct answer */
 
   /* Colour: SQL syntax highlighting (editor). All meet 4.5:1 on --color-surface. */
   --code-keyword: #2852c4;
@@ -127,6 +128,7 @@
     --color-border-strong: #66728a;
 
     --color-danger: #ff9a8f;
+    --color-success: #7fd88f;
 
     --code-keyword: #8eaaff;
     --code-string: #7fd88f;

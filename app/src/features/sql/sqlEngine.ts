@@ -1,4 +1,4 @@
-import type { EngineInfo, ExecuteResult, TableInfo, WorkerRequest, WorkerResponse } from './protocol.ts'
+import type { EngineInfo, EvaluationResult, ExecuteResult, TableInfo, WorkerRequest, WorkerResponse } from './protocol.ts'
 
 /**
  * Main-thread client for the database worker.
@@ -10,6 +10,10 @@ import type { EngineInfo, ExecuteResult, TableInfo, WorkerRequest, WorkerRespons
  *   QUERY_TIME_LIMIT_MS (or when the learner presses Stop) the worker is
  *   terminated and a new one is started. The session database is lost and the
  *   new worker starts from the original dataset; callers are told this happened.
+ *
+ * The app has two engines, each with its own worker: one for the practice space
+ * and lesson examples, and one for challenges. A runaway challenge query can
+ * therefore never reset the practice database.
  */
 
 export const QUERY_TIME_LIMIT_MS = 5000
@@ -49,7 +53,15 @@ interface Pending {
   timer: ReturnType<typeof setTimeout> | undefined
 }
 
-class SqlEngine {
+interface EngineOptions {
+  /** Worker name, shown in browser developer tools. */
+  workerName: string
+  /** What a restart means for the learner, appended to stop, time-out and crash messages. */
+  restartNote: string
+}
+
+export class SqlEngine {
+  private readonly options: EngineOptions
   private worker: Worker | null = null
   private ready: Promise<void> | null = null
   private nextId = 1
@@ -57,6 +69,10 @@ class SqlEngine {
   private busyCount = 0
   private listeners = new Set<() => void>()
   private state: EngineState = { status: 'idle', sqliteVersion: null, failure: null, sessionVersion: 0 }
+
+  constructor(options: EngineOptions) {
+    this.options = options
+  }
 
   // --- State for React (useSyncExternalStore) ---------------------------------
 
@@ -94,6 +110,14 @@ class SqlEngine {
     return this.call<TableInfo[]>({ type: 'schema' }, QUERY_TIME_LIMIT_MS)
   }
 
+  /**
+   * Checks a challenge answer. The worker runs the answer and the reference query
+   * on separate fresh, read-only copies of the dataset. The time limit covers both.
+   */
+  evaluate(challengeId: string, sql: string): Promise<EvaluationResult> {
+    return this.call<EvaluationResult>({ type: 'evaluate', challengeId, sql }, QUERY_TIME_LIMIT_MS)
+  }
+
   /** Starts the engine early, for example when the Practice page opens. */
   start(): Promise<void> {
     return this.ensureReady()
@@ -105,7 +129,7 @@ class SqlEngine {
     this.restart(
       new EngineError(
         'stopped',
-        'The query was stopped. The database engine was restarted, so the database is back to the original bookstore data.',
+        `The query was stopped. ${this.options.restartNote}`,
         true,
       ),
     )
@@ -128,7 +152,7 @@ class SqlEngine {
   private async boot(): Promise<void> {
     this.setState({ status: 'starting', failure: null })
     try {
-      const worker = new Worker(new URL('./sql.worker.ts', import.meta.url), { type: 'module', name: 'sql-learner-database' })
+      const worker = new Worker(new URL('./sql.worker.ts', import.meta.url), { type: 'module', name: this.options.workerName })
       worker.addEventListener('message', (event: MessageEvent<WorkerResponse>) => this.receive(event.data))
       worker.addEventListener('error', (event) => {
         event.preventDefault()
@@ -180,7 +204,7 @@ class SqlEngine {
           new EngineError(
             'timeout',
             `The query was stopped after ${QUERY_TIME_LIMIT_MS / 1000} seconds, so the app stays responsive. ` +
-              'The database engine was restarted, so the database is back to the original bookstore data.',
+              this.options.restartNote,
             true,
           ),
         )
@@ -215,7 +239,7 @@ class SqlEngine {
     this.restart(
       new EngineError(
         'crashed',
-        'The database engine stopped unexpectedly and was restarted. The database is back to the original bookstore data.',
+        `The database engine stopped unexpectedly and was restarted. ${this.options.restartNote}`,
         true,
       ),
     )
@@ -243,5 +267,17 @@ class SqlEngine {
   }
 }
 
-/** One engine for the whole app, so the practice database survives page changes. */
-export const sqlEngine = new SqlEngine()
+/** The practice and lesson engine. One for the whole app, so the practice database survives page changes. */
+export const sqlEngine = new SqlEngine({
+  workerName: 'sql-learner-database',
+  restartNote: 'The database engine was restarted, so the database is back to the original bookstore data.',
+})
+
+/**
+ * The challenge engine. Every challenge run and submission uses a fresh copy of
+ * the dataset, so a restart loses nothing.
+ */
+export const challengeEngine = new SqlEngine({
+  workerName: 'sql-learner-challenges',
+  restartNote: 'Nothing was saved or changed, and your query is still in the editor.',
+})

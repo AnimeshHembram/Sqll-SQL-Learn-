@@ -3,6 +3,8 @@
  * (sql.worker.ts). Everything here must be structured-clone friendly.
  */
 
+import type { Feedback } from '../challenges/evaluate.ts'
+
 /** A single value in a result. BLOBs are summarised by size rather than sent whole. */
 export type CellValue = string | number | null | { blob: number }
 
@@ -58,12 +60,23 @@ export interface EngineInfo {
   sqliteVersion: string
 }
 
+/**
+ * The outcome of a challenge submission. Contains the learner's own result and
+ * the feedback, never the reference query or its result.
+ */
+export interface EvaluationResult {
+  feedback: Feedback
+  result: ExecuteResult
+}
+
 export type WorkerRequest =
   | { id: number; type: 'init' }
   /** `scratch` runs against a fresh copy of the dataset and leaves the session database untouched. */
   | { id: number; type: 'execute'; sql: string; scratch: boolean }
   | { id: number; type: 'reset' }
   | { id: number; type: 'schema' }
+  /** Runs `sql` and the challenge's reference query, each on its own fresh read-only copy of the dataset, and compares them. */
+  | { id: number; type: 'evaluate'; challengeId: string; sql: string }
 
 export type WorkerResponse =
   | { id: number; ok: true; value: unknown }
