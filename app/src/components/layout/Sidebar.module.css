@@ -1,0 +1,124 @@
+/* Mobile and tablet: off-canvas drawer. */
+.sidebar {
+  position: fixed;
+  inset: 0 auto 0 0;
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  width: min(18rem, 85vw);
+  padding: var(--space-3);
+  overflow-y: auto;
+  background: var(--color-sidebar);
+  color: var(--color-sidebar-text);
+  transform: translateX(-100%);
+  visibility: hidden; /* keeps the closed drawer out of the tab order */
+  transition:
+    transform var(--duration-base) var(--ease-standard),
+    visibility 0s linear var(--duration-base);
+}
+
+.open {
+  transform: none;
+  visibility: visible;
+  box-shadow: var(--shadow-lg);
+  transition:
+    transform var(--duration-base) var(--ease-standard),
+    visibility 0s;
+}
+
+.top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  min-height: var(--header-height);
+  margin-bottom: var(--space-4);
+}
+
+.nav {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+}
+
+.list {
+  display: grid;
+  gap: var(--space-1);
+  padding: 0;
+  list-style: none;
+}
+
+.secondary {
+  margin-top: auto;
+  padding-top: var(--space-4);
+  border-top: 1px solid rgb(255 255 255 / 0.08);
+}
+
+.link,
+.link:hover {
+  color: var(--color-sidebar-text);
+}
+
+.link {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: 2.75rem;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  font-weight: var(--weight-medium);
+  text-decoration: none;
+  transition:
+    background-color var(--duration-fast) var(--ease-standard),
+    color var(--duration-fast) var(--ease-standard);
+}
+
+.link:hover {
+  background: var(--color-sidebar-hover);
+  color: var(--color-sidebar-text-active);
+}
+
+.link:focus-visible {
+  box-shadow: var(--focus-ring-on-dark);
+  border-radius: var(--radius-md);
+}
+
+/* Active page reads like a highlighted row in a result set. */
+.active,
+.active:hover {
+  background: var(--color-sidebar-active);
+  color: var(--color-sidebar-text-active);
+}
+
+.active::before {
+  content: '';
+  position: absolute;
+  inset: var(--space-2) auto var(--space-2) 0;
+  width: 3px;
+  border-radius: 2px;
+  background: var(--color-highlight);
+}
+
+/* Desktop: permanent column. */
+@media (min-width: 64rem) {
+  .sidebar {
+    position: sticky;
+    top: 0;
+    z-index: auto;
+    width: auto;
+    height: 100vh;
+    height: 100dvh;
+    transform: none;
+    visibility: visible;
+    transition: none;
+  }
+
+  .open {
+    box-shadow: none;
+  }
+
+  .closeButton {
+    display: none;
+  }
+}

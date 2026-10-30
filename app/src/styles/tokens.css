@@ -1,0 +1,124 @@
+/*
+ * SQL Learner design tokens.
+ * Every colour, size and timing used by components comes from here.
+ * Light theme is the default; dark theme follows the operating-system setting.
+ *
+ * Breakpoints (CSS variables cannot be used inside media queries, so they are
+ * written as literals in component styles):
+ *   - 40rem  (640px)  small tablet
+ *   - 64rem  (1024px) desktop: sidebar is always visible from here up
+ */
+
+:root {
+  color-scheme: light dark;
+
+  /* Colour: brand */
+  --color-primary: #2852c4;
+  --color-primary-hover: #1f43a6;
+  --color-on-primary: #ffffff;
+  --color-highlight: #f0c33c; /* "highlighted row" marker, used sparingly */
+
+  /* Colour: surfaces */
+  --color-bg: #f5f7fb;
+  --color-surface: #ffffff;
+  --color-surface-muted: #eef1f7;
+  --color-sidebar: #1b2640;
+
+  /* Colour: text */
+  --color-text: #1b2333;
+  --color-text-muted: #4f5b73;
+  --color-sidebar-text: #c3cde2;
+  --color-sidebar-text-active: #ffffff;
+
+  /* Colour: lines */
+  --color-border: #d8deea;
+  --color-border-strong: #7f8ba3;
+
+  /* Colour: interactive states */
+  --color-sidebar-hover: rgb(255 255 255 / 0.06);
+  --color-sidebar-active: rgb(255 255 255 / 0.11);
+  --color-focus: #2852c4;
+  --color-focus-on-dark: #f0c33c;
+  --color-backdrop: rgb(11 15 23 / 0.5);
+
+  /* Typography */
+  --font-sans: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --font-mono: ui-monospace, 'Cascadia Code', 'SF Mono', Consolas, 'Liberation Mono', monospace;
+
+  --text-xs: 0.8125rem; /* 13px */
+  --text-sm: 0.875rem; /* 14px */
+  --text-md: 1rem; /* 16px, body */
+  --text-lg: 1.125rem; /* 18px */
+  --text-xl: 1.375rem; /* 22px, section headings */
+  --text-2xl: 1.75rem; /* 28px */
+  --text-3xl: 2.25rem; /* 36px, page titles on desktop */
+
+  --leading-tight: 1.2;
+  --leading-normal: 1.55;
+
+  --weight-regular: 400;
+  --weight-medium: 500;
+  --weight-semibold: 600;
+  --weight-bold: 700;
+
+  /* Spacing (4px scale) */
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.25rem;
+  --space-6: 1.5rem;
+  --space-8: 2rem;
+  --space-10: 2.5rem;
+  --space-12: 3rem;
+
+  /* Radii */
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+
+  /* Shadows */
+  --shadow-sm: 0 1px 2px rgb(27 35 51 / 0.06);
+  --shadow-lg: 0 12px 32px rgb(27 35 51 / 0.24);
+
+  /* Motion */
+  --duration-fast: 120ms;
+  --duration-base: 200ms;
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+
+  /* Focus */
+  --focus-ring: 0 0 0 3px var(--color-focus);
+  --focus-ring-on-dark: 0 0 0 3px var(--color-focus-on-dark);
+
+  /* Layout */
+  --sidebar-width: 16rem;
+  --header-height: 3.5rem;
+  --content-max-width: 60rem;
+  --reading-max-width: 42rem;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-primary: #8eaaff;
+    --color-primary-hover: #aac0ff;
+    --color-on-primary: #0f1a33;
+
+    --color-bg: #11151e;
+    --color-surface: #181e2a;
+    --color-surface-muted: #1f2635;
+    --color-sidebar: #0b0f17;
+
+    --color-text: #e5e9f2;
+    --color-text-muted: #a3adc2;
+    --color-sidebar-text: #a9b4ca;
+
+    --color-border: #2c3547;
+    --color-border-strong: #66728a;
+
+    --color-focus: #8eaaff;
+    --color-backdrop: rgb(0 0 0 / 0.6);
+
+    --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.3);
+    --shadow-lg: 0 12px 32px rgb(0 0 0 / 0.5);
+  }
+}

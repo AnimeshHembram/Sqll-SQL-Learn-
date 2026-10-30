@@ -1,0 +1,19 @@
+.standalone {
+  max-width: var(--content-max-width);
+  padding: var(--space-10) var(--space-6);
+}
+
+.homeLink {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.75rem;
+  font-weight: var(--weight-semibold);
+}
+
+.detail {
+  max-width: var(--reading-max-width);
+  color: var(--color-text-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  overflow-wrap: anywhere;
+}

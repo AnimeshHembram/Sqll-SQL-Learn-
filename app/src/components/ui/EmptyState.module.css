@@ -1,0 +1,21 @@
+.empty {
+  padding: var(--space-5);
+  border: 1px dashed var(--color-border-strong);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-muted);
+}
+
+.title {
+  font-weight: var(--weight-semibold);
+}
+
+.text {
+  max-width: var(--reading-max-width);
+  margin-top: var(--space-1);
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
+}
+
+.action {
+  margin-top: var(--space-4);
+}
