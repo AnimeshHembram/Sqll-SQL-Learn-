@@ -1,0 +1,40 @@
+.scroll {
+  max-height: 28rem;
+  overflow: auto;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--text-sm);
+  font-variant-numeric: tabular-nums;
+}
+
+.table th,
+.table td {
+  padding: var(--space-2) var(--space-4);
+  border-bottom: 1px solid var(--color-border);
+  text-align: left;
+  white-space: nowrap;
+}
+
+/* Header stays visible while scrolling long results. */
+.table th {
+  position: sticky;
+  top: 0;
+  background: var(--color-surface-muted);
+  font-weight: var(--weight-semibold);
+}
+
+.table tr:last-child td {
+  border-bottom: 0;
+}
+
+.null,
+.special {
+  color: var(--color-text-muted);
+  font-style: italic;
+}

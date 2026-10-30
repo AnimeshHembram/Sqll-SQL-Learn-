@@ -27,7 +27,8 @@ export function SettingsPage() {
         <Card title="Your data">
           <p>
             SQL Learner remembers the last lesson you opened so the dashboard can take you back to it.
-            This is saved only in this browser and is never sent anywhere.
+            This is saved only in this browser and is never sent anywhere. Your practice database is not saved
+            at all: it lives in this tab's memory and returns to the original data when you reload the page.
           </p>
           <div className={styles.actions}>
             <Button variant="secondary" onClick={() => setStatus(clearAllStored() ? 'cleared' : 'unavailable')}>

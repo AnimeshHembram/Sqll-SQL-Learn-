@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type MouseEvent } from 'react'
 import { Outlet, ScrollRestoration, useLocation } from 'react-router'
-import { MAIN_CONTENT_ID, PAGE_TITLE_ID, focusElementById } from '../../app/focus.ts'
+import { MAIN_CONTENT_ID, focusElementById, focusPageTitle } from '../../app/focus.ts'
 import { Header } from './Header.tsx'
 import { Sidebar } from './Sidebar.tsx'
 import styles from './AppShell.module.css'
@@ -20,7 +20,7 @@ export function AppShell() {
   useEffect(() => {
     if (previousPathname.current !== pathname) {
       previousPathname.current = pathname
-      focusElementById(PAGE_TITLE_ID)
+      focusPageTitle()
     }
   }, [pathname])
 

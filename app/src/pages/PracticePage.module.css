@@ -1,0 +1,74 @@
+.layout {
+  display: grid;
+  gap: var(--space-5);
+}
+
+.main {
+  display: grid;
+  gap: var(--space-5);
+  min-width: 0;
+}
+
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-top: var(--space-4);
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+
+.hint,
+.status,
+.placeholder {
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
+}
+
+.hint {
+  margin-top: var(--space-3);
+}
+
+.hint kbd {
+  padding: 0.1em 0.4em;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-sans);
+  font-size: var(--text-xs);
+  white-space: nowrap;
+}
+
+.status {
+  margin-bottom: var(--space-4);
+}
+
+.failure,
+.engineError {
+  display: grid;
+  justify-items: start;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border: 1px solid var(--color-border);
+  border-left: 3px solid var(--color-danger);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+}
+
+/* The page uses the full content width; the explorer moves beside the editor on wide screens. */
+@media (min-width: 80rem) {
+  .layout {
+    grid-template-columns: minmax(0, 1fr) 17rem;
+    align-items: start;
+  }
+
+  .explorer {
+    position: sticky;
+    top: var(--space-6);
+  }
+}

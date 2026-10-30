@@ -1,0 +1,25 @@
+.editor {
+  min-height: 10rem;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  background: var(--color-surface);
+}
+
+.editor:focus-within {
+  border-color: var(--color-focus);
+  box-shadow: var(--focus-ring);
+}
+
+/* CodeMirror draws its own focus state; the ring on the wrapper replaces it. */
+.editor :global(.cm-editor.cm-focused) {
+  outline: none;
+}
+
+.editor :global(.cm-editor) {
+  min-height: 10rem;
+}
+
+.editor :global(.cm-scroller) {
+  max-height: 22rem;
+}

@@ -1,3 +1,4 @@
+import type { Ref } from 'react'
 import styles from './Prose.module.css'
 
 interface ProseProps {
@@ -7,9 +8,10 @@ interface ProseProps {
    * markup produced by the Markdown converter.
    */
   html: string
+  ref?: Ref<HTMLDivElement>
 }
 
 /** Reading-friendly styles for lesson text, tables and code. */
-export function Prose({ html }: ProseProps) {
-  return <div className={styles.prose} dangerouslySetInnerHTML={{ __html: html }} />
+export function Prose({ html, ref }: ProseProps) {
+  return <div ref={ref} className={styles.prose} dangerouslySetInnerHTML={{ __html: html }} />
 }

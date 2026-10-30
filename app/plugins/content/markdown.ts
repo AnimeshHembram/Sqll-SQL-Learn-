@@ -61,4 +61,43 @@ export const markdown = new Marked({
   },
 })
 
+export interface ExtractedExample {
+  kind: 'example' | 'error'
+  sql: string
+  /** The table directly under the query (optionally after an "Expected output:" line). */
+  expected: { columns: string[]; rows: string[][] } | null
+}
+
+/**
+ * Lists the runnable (`sql`) and failing (`sql error`) code blocks in document
+ * order, which is also the order of their <figure> elements in the HTML.
+ */
+export function extractExamples(tokens: Token[]): ExtractedExample[] {
+  const topLevel = tokens.filter((token) => token.type !== 'space')
+  const expectedFor = new Map<Token, ExtractedExample['expected']>()
+
+  topLevel.forEach((token, index) => {
+    if (token.type !== 'code') return
+    let next = topLevel[index + 1]
+    if (next?.type === 'paragraph' && next.text.trim() === 'Expected output:') next = topLevel[index + 2]
+    if (next?.type === 'table') {
+      const table = next as Tokens.Table
+      expectedFor.set(token, {
+        columns: table.header.map((cell) => cell.text),
+        rows: table.rows.map((row) => row.map((cell) => cell.text)),
+      })
+    }
+  })
+
+  const examples: ExtractedExample[] = []
+  markdown.walkTokens(tokens, (token) => {
+    if (token.type !== 'code') return
+    const kind = codeKind(token.lang)
+    if (kind === 'example' || kind === 'error') {
+      examples.push({ kind, sql: token.text, expected: kind === 'example' ? (expectedFor.get(token) ?? null) : null })
+    }
+  })
+  return examples
+}
+
 export type { Token, Tokens }

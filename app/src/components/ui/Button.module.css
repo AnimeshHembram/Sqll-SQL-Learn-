@@ -47,3 +47,8 @@
 .secondary:hover {
   background: var(--color-surface-muted);
 }
+
+.button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}

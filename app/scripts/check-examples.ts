@@ -12,7 +12,9 @@
  *   ```sql error    must fail with an error.
  *   ```sql syntax   is a pattern with placeholders and is not run.
  *
- * This is a development check only. SQL never runs in the app in this phase.
+ * Examples are found and compared with the same code the app uses for its lesson
+ * "Run" buttons (plugins/content/markdown.ts and src/features/sql/compare.ts), so
+ * this check and what learners see always agree.
  */
 
 import { existsSync, readdirSync, readFileSync } from 'node:fs'
@@ -21,103 +23,67 @@ import { DatabaseSync } from 'node:sqlite'
 import { fileURLToPath } from 'node:url'
 import { parseFrontMatter } from '../plugins/content/frontMatter.ts'
 import { MODULE_FILE, displayPath } from '../plugins/content/loadContent.ts'
-import { codeKind, markdown, type Token, type Tokens } from '../plugins/content/markdown.ts'
+import { extractExamples, markdown } from '../plugins/content/markdown.ts'
+import { compareTables, type ActualTable, type ComparableValue } from '../src/features/sql/compare.ts'
 
 const root = fileURLToPath(new URL('..', import.meta.url))
 const modulesDir = path.join(root, 'src/content/modules')
 const datasetsDir = path.join(root, 'src/content/datasets')
-
-type Cell = string | number | bigint | null | Uint8Array
 
 const failures: string[] = []
 let examplesChecked = 0
 let resultsCompared = 0
 let errorsConfirmed = 0
 
-function formatValue(value: Cell): string {
-  return value === null ? 'NULL' : String(value)
-}
-
-/** A table cell matches a value if the text is equal, or both are the same number (so 15.50 matches 15.5). */
-function cellMatches(text: string, value: Cell): boolean {
-  if (value === null) return text === 'NULL'
-  if (typeof value === 'number' || typeof value === 'bigint') {
-    return text.trim() !== '' && Number(text) === Number(value)
-  }
-  return text === String(value)
-}
-
-function run(seed: string, sql: string): { columns: string[]; rows: Cell[][] } {
+function run(seed: string, sql: string): ActualTable {
   const db = new DatabaseSync(':memory:')
   try {
     db.exec(seed)
     const statement = db.prepare(sql)
     statement.setReturnArrays(true)
-    const rows = statement.all() as unknown as Cell[][]
+    const rows = statement.all() as unknown as ComparableValue[][]
     return { columns: statement.columns().map((column) => column.name), rows }
   } finally {
     db.close()
   }
 }
 
-function compare(where: string, sql: string, table: Tokens.Table, actual: { columns: string[]; rows: Cell[][] }) {
-  const problems: string[] = []
-  const expectedColumns = table.header.map((cell) => cell.text)
-  if (expectedColumns.join(' | ') !== actual.columns.join(' | ')) {
-    problems.push(`columns: lesson shows [${expectedColumns.join(', ')}], SQLite returns [${actual.columns.join(', ')}]`)
-  }
-  if (table.rows.length !== actual.rows.length) {
-    problems.push(`row count: lesson shows ${table.rows.length}, SQLite returns ${actual.rows.length}`)
-  }
-  table.rows.forEach((row, r) => {
-    row.forEach((cell, c) => {
-      const value = actual.rows[r]?.[c]
-      if (value === undefined || !cellMatches(cell.text, value)) {
-        problems.push(`row ${r + 1}, column ${c + 1}: lesson shows "${cell.text}", SQLite returns "${value === undefined ? '(nothing)' : formatValue(value)}"`)
-      }
-    })
-  })
-  if (problems.length > 0) {
-    failures.push(`${where}: result does not match for\n      ${sql.trim().replace(/\n/g, '\n      ')}\n    - ${problems.slice(0, 6).join('\n    - ')}`)
-  } else {
-    resultsCompared += 1
-  }
+function indent(sql: string): string {
+  return sql.trim().replace(/\n/g, '\n      ')
 }
 
 function checkLesson(file: string, seed: string) {
   const { body } = parseFrontMatter(readFileSync(file, 'utf8'))
-  const tokens = markdown.lexer(body).filter((token: Token) => token.type !== 'space')
   const where = displayPath(file)
 
-  tokens.forEach((token, index) => {
-    if (token.type !== 'code') return
-    const kind = codeKind(token.lang)
-    const sql = token.text
-
-    if (kind === 'error') {
+  for (const example of extractExamples(markdown.lexer(body))) {
+    if (example.kind === 'error') {
       try {
-        run(seed, sql)
-        failures.push(`${where}: this "sql error" example runs without an error, so it is not a mistake:\n      ${sql.trim()}`)
+        run(seed, example.sql)
+        failures.push(`${where}: this "sql error" example runs without an error, so it is not a mistake:\n      ${indent(example.sql)}`)
       } catch {
         errorsConfirmed += 1
       }
-      return
+      continue
     }
-    if (kind !== 'example') return
 
     examplesChecked += 1
-    let actual
+    let actual: ActualTable
     try {
-      actual = run(seed, sql)
+      actual = run(seed, example.sql)
     } catch (error) {
-      failures.push(`${where}: example fails in SQLite (${(error as Error).message}):\n      ${sql.trim()}`)
-      return
+      failures.push(`${where}: example fails in SQLite (${(error as Error).message}):\n      ${indent(example.sql)}`)
+      continue
     }
-    // The result table sits directly under the query, optionally after an "Expected output:" line.
-    let next = tokens[index + 1]
-    if (next?.type === 'paragraph' && next.text.trim() === 'Expected output:') next = tokens[index + 2]
-    if (next?.type === 'table') compare(where, sql, next as Tokens.Table, actual)
-  })
+    if (!example.expected) continue
+
+    const comparison = compareTables(example.expected, actual)
+    if (comparison.matches) {
+      resultsCompared += 1
+    } else {
+      failures.push(`${where}: result does not match for\n      ${indent(example.sql)}\n    - ${comparison.differences.join('\n    - ')}`)
+    }
+  }
 }
 
 for (const entry of readdirSync(modulesDir, { withFileTypes: true })) {

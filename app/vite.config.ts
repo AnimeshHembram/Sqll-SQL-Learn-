@@ -13,4 +13,8 @@ export default defineConfig({
       datasetsDir: fileURLToPath(new URL('./src/content/datasets', import.meta.url)),
     }),
   ],
+  // The SQL worker is an ES module (it imports sql.js and the dataset).
+  worker: {
+    format: 'es',
+  },
 })

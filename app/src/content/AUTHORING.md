@@ -130,6 +130,10 @@ SELECT title FROM books;
 | `sql syntax` | Syntax | Not run. Use placeholders such as `table_name`. |
 | `sql error`  | "This query causes an error", in red | Must fail when run. |
 
+In the app, every `sql` and `sql error` block gets **Run** and **Open in Practice** buttons. Run
+uses a fresh copy of the module's dataset and compares the result with the table under the
+query, using the same comparison as `npm run check:examples`.
+
 ### Results
 
 - Never type a result by hand without running the check. `npm run check:examples` compares every

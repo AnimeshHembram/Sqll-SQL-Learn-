@@ -2,7 +2,7 @@ import { useEffect } from 'react'
 import { useParams } from 'react-router'
 import { NAV } from '../app/navigation.ts'
 import { LessonPager } from '../components/content/LessonPager.tsx'
-import { Prose } from '../components/content/Prose.tsx'
+import { LessonBody } from '../components/content/LessonBody.tsx'
 import { Breadcrumbs } from '../components/ui/Breadcrumbs.tsx'
 import { Card } from '../components/ui/Card.tsx'
 import { PageHeader } from '../components/ui/PageHeader.tsx'
@@ -48,7 +48,7 @@ export function LessonPage() {
       </Card>
 
       <article aria-label={lesson.title}>
-        <Prose html={lesson.html} />
+        <LessonBody key={lesson.id} lesson={lesson} />
       </article>
 
       <LessonPager location={location} />

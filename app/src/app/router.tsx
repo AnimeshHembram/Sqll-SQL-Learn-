@@ -6,7 +6,7 @@ import { LearnPage } from '../pages/LearnPage.tsx'
 import { LessonPage } from '../pages/LessonPage.tsx'
 import { ModulePage } from '../pages/ModulePage.tsx'
 import { NotFoundPage } from '../pages/NotFoundPage.tsx'
-import { PracticePage } from '../pages/PracticePage.tsx'
+import { PracticeRoute } from '../pages/PracticeRoute.tsx'
 import { ReferencePage } from '../pages/ReferencePage.tsx'
 import { RouteErrorPage } from '../pages/RouteErrorPage.tsx'
 import { SettingsPage } from '../pages/SettingsPage.tsx'
@@ -27,7 +27,7 @@ export const router = createBrowserRouter([
           { path: NAV.learn.path, element: <LearnPage /> },
           { path: `${NAV.learn.path}/:moduleId`, element: <ModulePage /> },
           { path: `${NAV.learn.path}/:moduleId/:lessonId`, element: <LessonPage /> },
-          { path: NAV.practice.path, element: <PracticePage /> },
+          { path: NAV.practice.path, element: <PracticeRoute /> },
           { path: NAV.challenges.path, element: <ChallengesPage /> },
           { path: NAV.reference.path, element: <ReferencePage /> },
           { path: NAV.settings.path, element: <SettingsPage /> },

@@ -3,8 +3,9 @@
 A browser-based app for learning SQL through structured lessons, practice and challenges.
 Everything runs in the browser: no account, no server, no tracking.
 
-> Status: Phase 03 — lesson system and the first module, SQL fundamentals (5 lessons).
-> The SQL engine, practice and challenges arrive in later phases.
+> Status: Phase 04 — SQL runs in the browser. The Practice page has an SQL editor, results and a
+> database explorer, and every lesson example can be run and compared with its expected output.
+> Challenges and progress tracking arrive in later phases.
 
 ## Requirements
 
@@ -42,12 +43,14 @@ src/
   app/            Router, navigation config, focus helpers
   components/
     layout/       AppShell, Sidebar, Header, Brand
-    content/      Prose, LessonList, LessonPager
-    ui/           Button, Card, EmptyState, PageHeader, Breadcrumbs, Icon, IconButton
+    content/      Prose, LessonBody, ExampleRunner, LessonList, LessonPager
+    ui/           Button, Card, ConfirmDialog, EmptyState, PageHeader, Breadcrumbs, Icon, IconButton
   content/
     modules/      Lesson Markdown files, one folder per module
     datasets/     Sample databases (.sql) used by the examples
     AUTHORING.md  How to write lessons and modules
+  features/sql/   SQL engine: worker, client, protocol, result comparison
+  components/sql/ SqlEditor, ResultTable, QueryResults, SchemaExplorer
   pages/          One component per route
   styles/         Design tokens (colours, type, spacing, motion)
   lib/            Small shared helpers (class names, browser storage)
@@ -66,7 +69,14 @@ src/
   page headings and dashboard all read from it, so a new section is added in one place.
 - **Styling:** plain CSS. Design tokens are CSS custom properties in `src/styles/tokens.css`;
   each component has its own CSS Module. Light and dark themes follow the operating system.
-- **Routing:** React Router (`createBrowserRouter`). Unknown paths show a not-found page.
+- **Routing:** React Router (`createBrowserRouter`). Unknown paths show a not-found page. The
+  Practice page (and the editor it carries) is loaded only when it is opened.
+- **SQL engine:** SQLite compiled to WebAssembly ([sql.js](https://github.com/sql-js/sql.js)), running
+  in a Web Worker (`src/features/sql/`). The WebAssembly file and `bookstore.sql` are bundled with
+  the app; no SQL is sent anywhere. Queries that run longer than 5 seconds, or that the learner
+  stops, end by restarting the worker, which also restores the original data.
+- **Editor:** CodeMirror 6 with SQLite highlighting, line numbers and completion of keywords, tables
+  and columns. Ctrl+Enter (Cmd+Enter on macOS) runs the query.
 
 ## Routes
 
@@ -87,6 +97,9 @@ src/
 SQL Learner remembers the last lesson opened (one `localStorage` entry, prefixed `sql-learner:`) so
 the dashboard can offer "Continue learning". Nothing is sent anywhere. Settings has a button to
 clear it. If storage is blocked, the app works normally without it.
+
+The practice database is kept in memory only, for the current tab. Reloading the page, pressing
+Reset database, or stopping a long query restores the original bookstore data.
 
 ## Browser support
 

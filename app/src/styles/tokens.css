@@ -37,6 +37,14 @@
   /* Colour: status */
   --color-danger: #b42318; /* text and borders for "this query causes an error" */
 
+  /* Colour: SQL syntax highlighting (editor). All meet 4.5:1 on --color-surface. */
+  --code-keyword: #2852c4;
+  --code-string: #1b7a34;
+  --code-number: #a14a0b;
+  --code-comment: #5f6b80;
+  --code-function: #7a3db8;
+  --code-gutter: #6b7690;
+
   /* Colour: interactive states */
   --color-sidebar-hover: rgb(255 255 255 / 0.06);
   --color-sidebar-active: rgb(255 255 255 / 0.11);
@@ -119,6 +127,13 @@
     --color-border-strong: #66728a;
 
     --color-danger: #ff9a8f;
+
+    --code-keyword: #8eaaff;
+    --code-string: #7fd88f;
+    --code-number: #ffb27a;
+    --code-comment: #9aa5b8;
+    --code-function: #d0a8ff;
+    --code-gutter: #8a95ab;
 
     --color-focus: #8eaaff;
     --color-backdrop: rgb(0 0 0 / 0.6);

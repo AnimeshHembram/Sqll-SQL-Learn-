@@ -1,8 +1,8 @@
 import { existsSync, readdirSync, readFileSync } from 'node:fs'
 import path from 'node:path'
-import { LEVELS, type ContentLesson, type ContentModule, type Level } from '../../src/content/types.ts'
+import { LEVELS, type ContentLesson, type ContentModule, type LessonExample, type Level } from '../../src/content/types.ts'
 import { parseFrontMatter, type FrontMatterValue } from './frontMatter.ts'
-import { CODE_LABELS, codeKind, isAllowedHref, markdown, type Token } from './markdown.ts'
+import { CODE_LABELS, codeKind, extractExamples, isAllowedHref, markdown, type Token } from './markdown.ts'
 
 /**
  * Reads every module folder under `contentDir`, validates it and converts the
@@ -110,7 +110,11 @@ function readFields(
 }
 
 /** Checks the Markdown against the content rules and converts it to HTML. */
-function renderMarkdown(body: string, isLesson: boolean, report: (message: string) => void): string {
+function renderMarkdown(
+  body: string,
+  isLesson: boolean,
+  report: (message: string) => void,
+): { html: string; examples: LessonExample[] } {
   const tokens = markdown.lexer(body)
   const sections = new Set<string>()
 
@@ -150,13 +154,26 @@ function renderMarkdown(body: string, isLesson: boolean, report: (message: strin
   // must be reachable by keyboard (tabindex) and have a unique accessible name,
   // so each table is numbered. Code blocks wrap instead (see Prose.module.css).
   let tableNumber = 0
-  return markdown
+  // Runnable examples are numbered in document order so the app can attach Run buttons to them.
+  let exampleNumber = 0
+  const html = markdown
     .parser(tokens)
     .replace(/<table>/g, () => {
       tableNumber += 1
       return `<div class="table-scroll" role="region" aria-label="Table ${tableNumber}" tabindex="0"><table>`
     })
     .replaceAll('</table>', '</table></div>')
+    .replace(/<figure class="code-block code-(example|error)">/g, (match) => {
+      const tagged = match.replace('>', ` data-example="${exampleNumber}">`)
+      exampleNumber += 1
+      return tagged
+    })
+
+  const examples = extractExamples(tokens)
+  if (examples.length !== exampleNumber) {
+    report(`internal error: found ${examples.length} runnable examples but tagged ${exampleNumber} code blocks`)
+  }
+  return { html, examples }
 }
 
 function readEntry(file: string, schema: Record<string, FieldKind>, isLesson: boolean, errors: string[]) {
@@ -171,8 +188,8 @@ function readEntry(file: string, schema: Record<string, FieldKind>, isLesson: bo
     report('the file has no content after the front matter')
     return null
   }
-  const html = renderMarkdown(body, isLesson, report)
-  return fields ? { fields, html, report } : null
+  const { html, examples } = renderMarkdown(body, isLesson, report)
+  return fields ? { fields, html, examples, report } : null
 }
 
 function reportDuplicates<T>(
@@ -241,7 +258,7 @@ export function loadContent(contentDir: string, datasetsDir: string): LoadResult
       const lessonEntry = readEntry(lessonFile, LESSON_FIELDS, true, errors)
       if (!lessonEntry) continue
 
-      const { fields, html, report } = lessonEntry
+      const { fields, html, examples, report } = lessonEntry
       const moduleRef = fields.module as string
       if (moduleId && moduleRef !== moduleId) {
         report(`"module" is "${moduleRef}", but this file is in the folder of module "${moduleId}" (${displayPath(moduleFile)})`)
@@ -258,6 +275,7 @@ export function loadContent(contentDir: string, datasetsDir: string): LoadResult
         durationMinutes: fields.duration as number,
         objectives: fields.objectives as string[],
         html,
+        examples,
       })
     }
 

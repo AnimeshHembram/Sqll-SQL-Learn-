@@ -1,5 +1,5 @@
-import type { ReactNode } from 'react'
-import { PAGE_TITLE_ID } from '../../app/focus.ts'
+import { useEffect, useRef, type ReactNode } from 'react'
+import { PAGE_TITLE_ID, takePendingTitleFocus } from '../../app/focus.ts'
 import styles from './PageHeader.module.css'
 
 interface PageHeaderProps {
@@ -15,10 +15,17 @@ interface PageHeaderProps {
 
 /** Page heading, description and browser tab title. Every page renders exactly one. */
 export function PageHeader({ title, description, documentTitle = title, meta, actions }: PageHeaderProps) {
+  const titleRef = useRef<HTMLHeadingElement>(null)
+
+  // After navigating to a page that loads lazily, focus arrives once the heading exists.
+  useEffect(() => {
+    if (takePendingTitleFocus()) titleRef.current?.focus()
+  }, [])
+
   return (
     <header className={styles.header}>
       <title>{`${documentTitle} | SQL Learner`}</title>
-      <h1 id={PAGE_TITLE_ID} tabIndex={-1} className={styles.title}>
+      <h1 ref={titleRef} id={PAGE_TITLE_ID} tabIndex={-1} className={styles.title}>
         {title}
       </h1>
       {description && <p className={styles.description}>{description}</p>}
