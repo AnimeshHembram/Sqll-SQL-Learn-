@@ -1,0 +1,24 @@
+.facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3) var(--space-8);
+  margin: 0 0 var(--space-8);
+  padding: var(--space-4) var(--space-5);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+}
+
+.facts dt {
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
+}
+
+.facts dd {
+  margin: 0;
+  font-weight: var(--weight-semibold);
+}
+
+.intro {
+  margin-bottom: var(--space-8);
+}

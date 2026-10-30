@@ -7,12 +7,14 @@ interface PageHeaderProps {
   description?: string
   /** Browser tab title, if it should differ from the visible heading. */
   documentTitle?: string
+  /** Small supporting detail under the description, such as a lesson's length. */
+  meta?: string
   /** Buttons or links shown under the description. */
   actions?: ReactNode
 }
 
 /** Page heading, description and browser tab title. Every page renders exactly one. */
-export function PageHeader({ title, description, documentTitle = title, actions }: PageHeaderProps) {
+export function PageHeader({ title, description, documentTitle = title, meta, actions }: PageHeaderProps) {
   return (
     <header className={styles.header}>
       <title>{`${documentTitle} | SQL Learner`}</title>
@@ -20,6 +22,7 @@ export function PageHeader({ title, description, documentTitle = title, actions 
         {title}
       </h1>
       {description && <p className={styles.description}>{description}</p>}
+      {meta && <p className={styles.meta}>{meta}</p>}
       {actions && <div className={styles.actions}>{actions}</div>}
     </header>
   )

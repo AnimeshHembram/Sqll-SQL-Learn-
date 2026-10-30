@@ -3,8 +3,8 @@
 A browser-based app for learning SQL through structured lessons, practice and challenges.
 Everything runs in the browser: no account, no server, no tracking.
 
-> Status: Phase 02 — application shell, navigation, routing and design system.
-> Lessons, the SQL engine, practice and challenges arrive in later phases.
+> Status: Phase 03 — lesson system and the first module, SQL fundamentals (5 lessons).
+> The SQL engine, practice and challenges arrive in later phases.
 
 ## Requirements
 
@@ -28,20 +28,39 @@ Then open the address Vite prints (usually http://localhost:5173).
 | `npm run build`   | Type-check and build the production files into `dist/` |
 | `npm run preview` | Serve the production build locally             |
 | `npm run lint`    | Run ESLint                                     |
+| `npm run check:examples` | Run every lesson's SQL examples in SQLite and compare them with the results shown |
+| `npm run check`   | Run lint, the example check and the production build, stopping at the first failure |
 
 ## Project structure
 
 ```
+plugins/
+  content/        Build-time lesson loader and checker (Vite plugin)
+scripts/
+  check-examples.ts  Checks lesson examples against SQLite
 src/
   app/            Router, navigation config, focus helpers
   components/
     layout/       AppShell, Sidebar, Header, Brand
-    ui/           Button, Card, EmptyState, PageHeader, Icon, IconButton
+    content/      Prose, LessonList, LessonPager
+    ui/           Button, Card, EmptyState, PageHeader, Breadcrumbs, Icon, IconButton
+  content/
+    modules/      Lesson Markdown files, one folder per module
+    datasets/     Sample databases (.sql) used by the examples
+    AUTHORING.md  How to write lessons and modules
   pages/          One component per route
   styles/         Design tokens (colours, type, spacing, motion)
-  lib/            Small shared helpers
+  lib/            Small shared helpers (class names, browser storage)
   index.css       Global base styles
 ```
+
+- **Lessons:** Markdown files with a short metadata block, in `src/content/modules/`. At build time
+  `plugins/content` checks every file (required fields, unique ids, module references, required
+  sections, safe Markdown only) and converts it to HTML, so no Markdown library ships to the
+  browser. A broken lesson fails `npm run build` and shows an error overlay in `npm run dev`.
+- **Examples:** `npm run check:examples` runs every SQL example against the module's dataset
+  (`src/content/datasets/`) using Node's built-in SQLite, and fails if any result table in a lesson
+  differs from the real output. See [src/content/AUTHORING.md](src/content/AUTHORING.md).
 
 - **Navigation:** `src/app/navigation.ts` is the single list of sections. The router, sidebar,
   page headings and dashboard all read from it, so a new section is added in one place.
@@ -55,11 +74,19 @@ src/
 | ------------- | ------------- |
 | `/`           | Dashboard     |
 | `/learn`      | Learn SQL     |
+| `/learn/:moduleId` | Module overview |
+| `/learn/:moduleId/:lessonId` | Lesson |
 | `/practice`   | Practice      |
 | `/challenges` | Challenges    |
 | `/reference`  | SQL Reference |
 | `/settings`   | Settings      |
 | anything else | Not found     |
+
+## Data stored in the browser
+
+SQL Learner remembers the last lesson opened (one `localStorage` entry, prefixed `sql-learner:`) so
+the dashboard can offer "Continue learning". Nothing is sent anywhere. Settings has a button to
+clear it. If storage is blocked, the app works normally without it.
 
 ## Browser support
 

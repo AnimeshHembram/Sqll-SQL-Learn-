@@ -1,0 +1,57 @@
+/* Lessons are a sequence, so they are numbered. */
+.list {
+  padding: 0;
+  list-style: none;
+  counter-reset: lesson;
+}
+
+.item {
+  position: relative;
+  display: flex;
+  gap: var(--space-4);
+  justify-content: space-between;
+  padding: var(--space-3) 0 var(--space-3) var(--space-10);
+  border-top: 1px solid var(--color-border);
+  counter-increment: lesson;
+}
+
+.item:first-child {
+  border-top: 0;
+}
+
+.item::before {
+  content: counter(lesson);
+  position: absolute;
+  top: var(--space-3);
+  left: 0;
+  display: grid;
+  place-items: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: 50%;
+  background: var(--color-surface-muted);
+  color: var(--color-primary);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-bold);
+}
+
+.text {
+  min-width: 0;
+}
+
+.link {
+  font-weight: var(--weight-semibold);
+}
+
+.summary {
+  margin-top: var(--space-1);
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
+}
+
+.duration {
+  flex-shrink: 0;
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
+  white-space: nowrap;
+}

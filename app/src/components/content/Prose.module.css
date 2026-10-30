@@ -1,0 +1,137 @@
+.prose {
+  max-width: var(--reading-max-width);
+  font-size: var(--text-lg);
+  line-height: 1.65;
+}
+
+.prose > * + * {
+  margin-top: var(--space-4);
+}
+
+.prose h2 {
+  margin-top: var(--space-10);
+  font-size: var(--text-xl);
+}
+
+.prose h3 {
+  margin-top: var(--space-8);
+  font-size: var(--text-lg);
+}
+
+.prose ul,
+.prose ol {
+  padding-left: var(--space-6);
+}
+
+.prose li + li {
+  margin-top: var(--space-2);
+}
+
+.prose strong {
+  font-weight: var(--weight-semibold);
+  color: var(--color-text);
+}
+
+/* Code blocks: the SQL being taught. Each is a <figure> with a caption that names
+   its kind (see plugins/content/markdown.ts). Long lines wrap so no part of a query
+   is hidden on small screens. */
+.prose :global(.code-block) {
+  margin: var(--space-5) 0 0;
+  border: 1px solid var(--color-border);
+  border-left: 3px solid var(--color-primary);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-muted);
+}
+
+.prose :global(.code-block) figcaption {
+  padding: var(--space-2) var(--space-5) 0;
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-semibold);
+}
+
+.prose :global(.code-syntax) {
+  border-style: dashed;
+  border-left-style: solid;
+  border-left-color: var(--color-border-strong);
+  background: var(--color-surface);
+}
+
+.prose :global(.code-error) {
+  border-left-color: var(--color-danger);
+}
+
+.prose :global(.code-error) figcaption {
+  color: var(--color-danger);
+}
+
+.prose pre {
+  margin: 0;
+  padding: var(--space-2) var(--space-5) var(--space-4);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-size: var(--text-md);
+  line-height: 1.6;
+}
+
+.prose pre code {
+  padding: 0;
+  background: none;
+  font-size: inherit;
+}
+
+/* Notes and tips. */
+.prose blockquote {
+  margin-left: 0;
+  margin-right: 0;
+  padding: var(--space-3) var(--space-5);
+  border-left: 3px solid var(--color-highlight);
+  border-radius: 0 var(--radius-md) var(--radius-md) 0;
+  background: var(--color-surface);
+  color: var(--color-text);
+  font-size: var(--text-md);
+}
+
+.prose blockquote > * + * {
+  margin-top: var(--space-2);
+}
+
+.prose em {
+  font-style: italic;
+}
+
+.prose a {
+  font-weight: var(--weight-medium);
+}
+
+/* Tables: example data and query results. */
+.prose :global(.table-scroll) {
+  overflow-x: auto;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+}
+
+.prose table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--text-sm);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.prose th,
+.prose td {
+  padding: var(--space-2) var(--space-4);
+  border-bottom: 1px solid var(--color-border);
+  text-align: left;
+}
+
+.prose th {
+  background: var(--color-surface-muted);
+  font-weight: var(--weight-semibold);
+}
+
+.prose tr:last-child td {
+  border-bottom: 0;
+}
