@@ -55,3 +55,11 @@
   font-size: var(--text-sm);
   white-space: nowrap;
 }
+
+/* A completed lesson swaps its number for a tick. */
+.item[data-completed]::before {
+  content: '✓';
+  content: '✓' / '';
+  background: var(--color-success);
+  color: var(--color-surface);
+}

@@ -1,9 +1,10 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { loadSolution, type ChallengeSolution } from '../../content/challenges.ts'
 import { Prose } from '../content/Prose.tsx'
 import { ResultTable } from '../sql/ResultTable.tsx'
 import { Button } from '../ui/Button.tsx'
 import { Card } from '../ui/Card.tsx'
+import { useFocusWhenDone } from '../../lib/useFocusReturn.ts'
 import styles from './SolutionPanel.module.css'
 
 interface SolutionPanelProps {
@@ -23,6 +24,9 @@ type LoadState = { status: 'loading' } | { status: 'loaded'; solution: Challenge
  */
 export function SolutionPanel({ challengeId, unlocked, revealed, solved, onReveal }: SolutionPanelProps) {
   const [state, setState] = useState<LoadState>({ status: 'loading' })
+  const solutionRef = useRef<HTMLDivElement>(null)
+  // "Show the solution" is replaced by the solution itself; keyboard users continue from there.
+  useFocusWhenDone(revealed, solutionRef)
 
   useEffect(() => {
     if (!revealed) return
@@ -59,7 +63,7 @@ export function SolutionPanel({ challengeId, unlocked, revealed, solved, onRevea
 
   return (
     <Card title="Solution">
-      <div aria-live="polite">
+      <div aria-live="polite" ref={solutionRef} tabIndex={-1}>
         {state.status === 'loading' && <p className={styles.note}>Loading the solution…</p>}
         {state.status === 'failed' && <p className={styles.problem}>The solution could not be loaded. Check your connection and reload the page.</p>}
         {state.status === 'loaded' && <SolutionDetails solution={state.solution} />}

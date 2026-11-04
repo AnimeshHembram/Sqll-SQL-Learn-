@@ -15,7 +15,7 @@ export function QueryResults({ result }: QueryResultsProps) {
   return (
     <div className={styles.results}>
       {statements.length === 0 && !error && (
-        <p className={styles.note}>Nothing to run. The editor contains no SQL statements.</p>
+        <p className={styles.note}>Nothing to run: the SQL contains only comments or blank lines.</p>
       )}
 
       {statements.map((statement, index) => (

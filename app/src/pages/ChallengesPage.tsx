@@ -6,6 +6,7 @@ import { Button } from '../components/ui/Button.tsx'
 import { Card } from '../components/ui/Card.tsx'
 import { EmptyState } from '../components/ui/EmptyState.tsx'
 import { PageHeader } from '../components/ui/PageHeader.tsx'
+import { ProgressBar } from '../components/ui/ProgressBar.tsx'
 import {
   CHALLENGES,
   CHALLENGE_TOPICS,
@@ -15,25 +16,42 @@ import {
 } from '../content/challenges.ts'
 import { formatLevel } from '../content/index.ts'
 import { LEVELS } from '../content/types.ts'
+import { useProgress } from '../features/progress/progressStore.ts'
+import { challengeCount, isChallengeSolved, nextUnsolvedChallenge } from '../features/progress/progressSummary.ts'
 import styles from './ChallengesPage.module.css'
 
-/** Filters live in the address (?difficulty=beginner&topic=WHERE), so a filtered list can be bookmarked or shared. */
+const STATUSES = { unsolved: 'Not solved yet', solved: 'Solved' } as const
+type Status = keyof typeof STATUSES
+
+function isStatus(value: string | null): value is Status {
+  return value !== null && value in STATUSES
+}
+
+/** Filters live in the address (?difficulty=beginner&topic=WHERE&status=unsolved), so a filtered list can be bookmarked or shared. */
 export function ChallengesPage() {
   const [params, setParams] = useSearchParams()
   const difficultyId = useId()
   const topicId = useId()
+  const statusId = useId()
+  const progress = useProgress()
 
   const rawDifficulty = params.get('difficulty')
   const rawTopic = params.get('topic')
   const difficulty = isLevel(rawDifficulty) ? rawDifficulty : null
   const topic = rawTopic !== null && CHALLENGE_TOPICS.includes(rawTopic) ? rawTopic : null
-  const filtered = difficulty !== null || topic !== null
+  const rawStatus = params.get('status')
+  const status = isStatus(rawStatus) ? rawStatus : null
+  const filtered = difficulty !== null || topic !== null || status !== null
 
   const shown = CHALLENGES.filter(
-    (challenge) => (difficulty === null || challenge.difficulty === difficulty) && (topic === null || challenge.topic === topic),
+    (challenge) =>
+      (difficulty === null || challenge.difficulty === difficulty) &&
+      (topic === null || challenge.topic === topic) &&
+      (status === null || isChallengeSolved(progress, challenge.id) === (status === 'solved')),
   )
+  const solvedCount = challengeCount(CHALLENGES, progress)
 
-  const setFilter = (name: 'difficulty' | 'topic', value: string) => {
+  const setFilter = (name: 'difficulty' | 'topic' | 'status', value: string) => {
     const next = new URLSearchParams(params)
     if (value === '') next.delete(name)
     else next.set(name, value)
@@ -42,6 +60,7 @@ export function ChallengesPage() {
 
   const clearFilters = () => setParams(new URLSearchParams(), { replace: true })
   const first = firstBeginnerChallenge()
+  const nextUnsolved = nextUnsolvedChallenge(CHALLENGES, progress)
 
   return (
     <>
@@ -50,7 +69,9 @@ export function ChallengesPage() {
         description="Write a query that answers a question about the bookstore database. Your result is checked automatically, and any query that returns the right data is accepted."
         actions={
           <>
-            {first && <Button to={challengePath(first.id)}>Start with a beginner challenge</Button>}
+            {solvedCount.done === 0
+              ? first && <Button to={challengePath(first.id)}>Start with a beginner challenge</Button>
+              : nextUnsolved && <Button to={challengePath(nextUnsolved.id)}>Continue: {nextUnsolved.title}</Button>}
             <Button to={NAV.quizzes.path} variant="secondary">
               Take a quiz instead
             </Button>
@@ -59,6 +80,14 @@ export function ChallengesPage() {
       />
 
       <Card title="All challenges" description={`${CHALLENGES.length} challenges, from your first SELECT to window functions.`}>
+        <div className={styles.progress}>
+          <p className={styles.progressText}>
+            {solvedCount.done === solvedCount.total
+              ? `You have solved all ${solvedCount.total} challenges.`
+              : `You have solved ${solvedCount.done} of ${solvedCount.total} challenges.`}
+          </p>
+          <ProgressBar done={solvedCount.done} total={solvedCount.total} label="Challenges solved" />
+        </div>
         <form className={styles.filters} aria-label="Filter challenges" onSubmit={(event) => event.preventDefault()}>
           <div className={styles.field}>
             <label htmlFor={difficultyId}>Difficulty</label>
@@ -78,6 +107,17 @@ export function ChallengesPage() {
               {CHALLENGE_TOPICS.map((name) => (
                 <option key={name} value={name}>
                   {name}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className={styles.field}>
+            <label htmlFor={statusId}>Status</label>
+            <select id={statusId} value={status ?? ''} onChange={(event) => setFilter('status', event.target.value)}>
+              <option value="">Solved and not solved</option>
+              {(Object.keys(STATUSES) as Status[]).map((value) => (
+                <option key={value} value={value}>
+                  {STATUSES[value]}
                 </option>
               ))}
             </select>
@@ -104,7 +144,9 @@ export function ChallengesPage() {
               </Button>
             }
           >
-            Try another difficulty or topic.
+            {status === 'unsolved' && difficulty === null && topic === null
+              ? 'You have solved every challenge. Well done.'
+              : 'Try another difficulty, topic or status.'}
           </EmptyState>
         )}
       </Card>

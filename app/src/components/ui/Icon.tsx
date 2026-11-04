@@ -11,6 +11,8 @@ export type IconName =
   | 'menu'
   | 'close'
   | 'logo'
+  | 'check'
+  | 'flame'
 
 /* 24×24 stroke icons drawn for SQL Learner. */
 const PATHS: Record<IconName, ReactNode> = {
@@ -50,6 +52,8 @@ const PATHS: Record<IconName, ReactNode> = {
   ),
   menu: <path d="M4 7h16M4 12h16M4 17h16" />,
   close: <path d="M6 6l12 12M18 6 6 18" />,
+  check: <path d="m5 12.5 4.5 4.5L19 7.5" />,
+  flame: <path d="M12 21c3.9 0 6.5-2.6 6.5-6.2 0-3.6-2.6-6-4.1-8.8-.4 2-1.4 3.2-2.6 3.9C11.6 7.5 10.4 5 8.4 3c.2 3.2-2.9 5.8-2.9 10.4C5.5 17.9 8.1 21 12 21z" />,
   logo: (
     <>
       <ellipse cx="12" cy="6" rx="7" ry="2.75" />

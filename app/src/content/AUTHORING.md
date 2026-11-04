@@ -15,6 +15,13 @@ These checks protect the content:
 | `npm run check:examples` | Runs every SQL example against the module's dataset in SQLite and compares the result with the table in the lesson. Run it whenever you change an example, a result table or a dataset. |
 | `npm run check:challenges` | Runs every challenge's solution, other accepted answers, wrong answers and starter query in SQLite and checks that each is judged as the file says. Run it whenever you change a challenge or a dataset. |
 
+## Ids and saved progress
+
+Learners' progress is saved in their browser under content ids: `<module id>/<lesson id>` for
+lessons, and the challenge or quiz `id`. **Changing an id makes existing progress for that item
+disappear** (it is ignored, not misattributed). Rename ids only when the content itself changes
+meaningfully. Changing a title, text or order is safe.
+
 ## Folder layout
 
 ```

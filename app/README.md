@@ -3,9 +3,10 @@
 A browser-based app for learning SQL through structured lessons, practice and challenges.
 Everything runs in the browser: no account, no server, no tracking.
 
-> Status: Phase 05 — 15 SQL challenges with automatic answer checking, progressive hints and
-> revealable solutions, plus three quizzes. Lessons, the practice space and runnable lesson examples
-> work as before. Progress tracking arrives in a later phase.
+> Status: Phase 06 — learning progress is saved in the browser: completed lessons, solved
+> challenges, quiz scores, a daily learning streak and recent activity, shown on a personalised
+> dashboard. Progress can be exported, imported and reset from Settings. Lessons, practice,
+> challenges and quizzes work as before.
 
 ## Requirements
 
@@ -32,7 +33,11 @@ Then open the address Vite prints (usually http://localhost:5173).
 | `npm run check:examples` | Run every lesson's SQL examples in SQLite and compare them with the results shown |
 | `npm run check:challenges` | Run every challenge's solution, accepted answers and wrong answers in SQLite and check the feedback each gets |
 | `npm run test:evaluation` | Unit tests for the answer comparison (NULLs, duplicates, numbers, order, columns) |
-| `npm run check`   | Run lint, both content checks, the evaluation tests and the production build, stopping at the first failure |
+| `npm run test:progress` | Unit tests for saved progress (checking stored data, streaks, counts against content) |
+| `npm run test:sql` | Tests for SQL execution on sql.js: empty input, errors, several statements, empty results, value types, row limits |
+| `npm run test:interactions` | Unit tests for button states (busy, disabled, pressed, keyboard activation) |
+| `npm run test:ui` | Optional browser tests for Run, Submit and Stop (pointer, keyboard, touch, focus, contrast). Needs a build and Playwright: `npm install --no-save playwright && npx playwright install chromium`. Not part of `npm run check` |
+| `npm run check`   | Run lint, both content checks, both test suites and the production build, stopping at the first failure |
 
 ## Project structure
 
@@ -43,13 +48,18 @@ scripts/
   check-examples.ts    Checks lesson examples against SQLite
   check-challenges.ts  Checks challenges against SQLite
   test-evaluation.ts   Unit tests for answer evaluation
+  test-progress.ts     Unit tests for saved progress
+  test-sql-execution.ts  Tests for SQL execution and result descriptions
+  test-interactions.ts   Unit tests for button interaction states
+  test-ui.mjs            Optional browser tests for Run, Submit and Stop
 src/
   app/            Router, navigation config, focus helpers
   components/
     layout/       AppShell, Sidebar, Header, Brand
     content/      Prose, LessonBody, ExampleRunner, LessonList, LessonPager
     challenges/   ChallengeList, FeedbackPanel, HintList, SolutionPanel, DifficultyBadge, Tag
-    ui/           Button, Card, ConfirmDialog, EmptyState, PageHeader, Breadcrumbs, Icon, IconButton
+    progress/     ProgressOverview, ActivityStrip, RecentActivity, LessonCompletion, CompletionBadge
+    ui/           Button, Card, ConfirmDialog, EmptyState, PageHeader, Breadcrumbs, Icon, IconButton, ProgressBar
   content/
     modules/      Lesson Markdown files, one folder per module
     challenges/   Challenge Markdown files
@@ -58,6 +68,7 @@ src/
     AUTHORING.md  How to write lessons, challenges and quizzes
   features/sql/   SQL engine: worker, client, protocol, result comparison
   features/challenges/  Answer evaluation and per-visit challenge state
+  features/progress/    Saved progress: model and checks (pure), store (localStorage + React), summaries
   components/sql/ SqlEditor, ResultTable, QueryResults, SchemaExplorer
   pages/          One component per route
   styles/         Design tokens (colours, type, spacing, motion)
@@ -79,7 +90,14 @@ src/
   [Challenge evaluation](#challenge-evaluation)). Hints, drafts and revealed solutions are kept in
   memory for the current visit only.
 - **Quizzes:** Markdown files in `src/content/quizzes/` with five question types. Answers are
-  checked one question at a time, with an explanation; nothing is saved.
+  checked one question at a time, with an explanation. When every answer is checked, the score is
+  saved as progress (best score, last score, number of attempts).
+- **Progress:** `src/features/progress/`. `progressModel.ts` defines the saved shape and checks
+  every stored or imported entry (a damaged entry is dropped, the rest is kept); it has no browser
+  code, so `npm run test:progress` runs it in Node. `progressStore.ts` saves to `localStorage`,
+  shares changes with React through `useSyncExternalStore`, and follows other tabs through the
+  `storage` event. `progressSummary.ts` measures progress against the current content, ignoring
+  saved entries for content that no longer exists.
 
 - **Navigation:** `src/app/navigation.ts` is the single list of sections. The router, sidebar,
   page headings and dashboard all read from it, so a new section is added in one place.
@@ -88,9 +106,29 @@ src/
 - **Routing:** React Router (`createBrowserRouter`). Unknown paths show a not-found page. The
   Practice page (and the editor it carries) is loaded only when it is opened.
 - **SQL engine:** SQLite compiled to WebAssembly ([sql.js](https://github.com/sql-js/sql.js)), running
-  in a Web Worker (`src/features/sql/`). The WebAssembly file and `bookstore.sql` are bundled with
+  in a Web Worker (`src/features/sql/`). `execute.ts` runs the statements and collects results; it
+  has no browser imports, so `npm run test:sql` runs it in Node on the same sql.js build. The WebAssembly file and `bookstore.sql` are bundled with
   the app; no SQL is sent anywhere. Queries that run longer than 5 seconds, or that the learner
   stops, end by restarting the worker, which also restores the original data.
+- **Results:** each statement gets its own result: a table with the row count, "No rows returned"
+  with the column names, or what a statement changed (for example "2 rows deleted", including
+  statements that start with `WITH`). An error names the failing statement; earlier statements keep
+  their results and changes. Up to 1,000 rows per statement are shown and up to 100,000 counted.
+  Values are shown as SQLite returned them: NULL and empty text have their own markers, spaces and
+  line breaks are kept, integers beyond 2^53 stay exact, and text over 300 characters is shortened
+  until expanded. The time shown in Practice is measured in the worker around SQLite's work, so it
+  does not include starting the engine or drawing the table. Blank or comment-only input runs
+  nothing, says so, and does not count towards the learning streak.
+- **Buttons:** `components/ui/Button` shows a pressed state for mouse, touch, Enter and Space. While
+  its action runs (`busy`), it shows a spinner and a label such as "Running…", ignores further
+  presses and stays focusable (`aria-busy`, `aria-disabled`), so keyboard users keep their place;
+  `disabled` is only for buttons that cannot be used, which are dimmed and have no hover or press
+  effect. If Stop had focus when it disappears, focus returns to the button that started the run.
+  A new result fades in briefly (not with reduced motion), so running the same query again is
+  visibly a new run. Holding Enter (or Ctrl+Enter in the editor) acts once, not once per key repeat.
+  When a button disappears or disables itself after use (Clear, Reset query, the last hint, Show the
+  solution, Check answer, Reset progress), focus moves to what comes next instead of the top of the
+  page. Ctrl+Enter on an empty editor says that there is nothing to run.
 - **Editor:** CodeMirror 6 with SQLite highlighting, line numbers and completion of keywords, tables
   and columns. Ctrl+Enter (Cmd+Enter on macOS) runs the query.
 
@@ -103,7 +141,7 @@ src/
 | `/learn/:moduleId` | Module overview |
 | `/learn/:moduleId/:lessonId` | Lesson |
 | `/practice`   | Practice      |
-| `/challenges` | Challenges (filters: `?difficulty=beginner&topic=WHERE`) |
+| `/challenges` | Challenges (filters: `?difficulty=beginner&topic=WHERE&status=unsolved`) |
 | `/challenges/:challengeId` | Challenge |
 | `/quizzes`    | Quizzes       |
 | `/quizzes/:quizId` | Quiz     |
@@ -113,12 +151,29 @@ src/
 
 ## Data stored in the browser
 
-SQL Learner remembers the last lesson opened (one `localStorage` entry, prefixed `sql-learner:`) so
-the dashboard can offer "Continue learning". Nothing is sent anywhere. Settings has a button to
-clear it. If storage is blocked, the app works normally without it.
+Two `localStorage` entries, both prefixed `sql-learner:`. Nothing is sent anywhere.
 
-Challenge drafts, hints used and revealed solutions are kept in memory only, until the page is
-reloaded. Quiz answers are kept only while the quiz page is open. Neither is written to storage.
+- `last-lesson:v1` — the last lesson opened, so the dashboard can offer "Continue learning".
+- `progress:v1` — learning progress:
+  - lessons marked complete, with the date;
+  - per challenge: when it was first solved, number of submissions, most hints shown, and whether
+    the solution was revealed (and whether that was before solving);
+  - per quiz: best score, last score, attempts and date;
+  - activity per local calendar day (count of learning actions: completing a lesson, submitting a
+    challenge answer, finishing a quiz, running a practice query), kept for about 400 days, used
+    for the streak;
+  - the 20 most recent lessons completed, challenges solved and quizzes finished.
+
+Lesson completion is the learner's choice ("Mark as complete" at the end of each lesson); nothing is
+marked complete automatically. A streak counts consecutive days with activity, and is still current
+on a day with no activity yet, until that day ends.
+
+Settings can export progress as a JSON file, import such a file (checked, then confirmed before it
+replaces anything), reset progress, or delete all saved data. If storage is blocked, the app works
+normally, progress lasts only for the visit, and Settings says so.
+
+Challenge drafts are kept in memory only, until the page is reloaded. Quiz answers in progress are
+kept only while the quiz page is open.
 
 The practice database is kept in memory only, for the current tab. Reloading the page, pressing
 Reset database, or stopping a long query restores the original bookstore data.

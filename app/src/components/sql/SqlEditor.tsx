@@ -2,7 +2,7 @@ import { autocompletion, closeBrackets, closeBracketsKeymap, completionKeymap } 
 import { defaultKeymap, history, historyKeymap } from '@codemirror/commands'
 import { sql, SQLite } from '@codemirror/lang-sql'
 import { bracketMatching, HighlightStyle, indentOnInput, syntaxHighlighting } from '@codemirror/language'
-import { Compartment, EditorState } from '@codemirror/state'
+import { Compartment, EditorState, Prec } from '@codemirror/state'
 import {
   drawSelection,
   EditorView,
@@ -13,7 +13,8 @@ import {
   placeholder,
 } from '@codemirror/view'
 import { tags } from '@lezer/highlight'
-import { useEffect, useRef } from 'react'
+import { useEffect, useImperativeHandle, useRef, type Ref } from 'react'
+import { isRepeatedEnter } from '../ui/buttonState.ts'
 import styles from './SqlEditor.module.css'
 
 /** Colours come from the design tokens, so light and dark themes both work. */
@@ -60,6 +61,12 @@ const editorTheme = EditorView.theme({
   },
 })
 
+/** What a parent can do with the editor. */
+export interface SqlEditorHandle {
+  /** Moves keyboard focus into the editor, for example after Clear. */
+  focus: () => void
+}
+
 interface SqlEditorProps {
   value: string
   onChange: (value: string) => void
@@ -69,6 +76,7 @@ interface SqlEditorProps {
   label: string
   /** Table name → column names, for autocompletion. */
   schema?: Record<string, string[]>
+  ref?: Ref<SqlEditorHandle>
 }
 
 /**
@@ -78,7 +86,7 @@ interface SqlEditorProps {
  * Keyboard: Tab is left to the browser so focus can move out of the editor;
  * Ctrl+Enter / Cmd+Enter runs the query.
  */
-export function SqlEditor({ value, onChange, onRun, label, schema }: SqlEditorProps) {
+export function SqlEditor({ value, onChange, onRun, label, schema, ref }: SqlEditorProps) {
   const hostRef = useRef<HTMLDivElement>(null)
   const viewRef = useRef<EditorView | null>(null)
   const languageRef = useRef(new Compartment())
@@ -89,6 +97,8 @@ export function SqlEditor({ value, onChange, onRun, label, schema }: SqlEditorPr
     onChangeRef.current = onChange
     onRunRef.current = onRun
   })
+
+  useImperativeHandle(ref, () => ({ focus: () => viewRef.current?.focus() }), [])
 
   // Create the editor once.
   useEffect(() => {
@@ -113,6 +123,16 @@ export function SqlEditor({ value, onChange, onRun, label, schema }: SqlEditorPr
           placeholder('Write a SQL query, for example: SELECT * FROM books;'),
           EditorView.lineWrapping,
           EditorView.contentAttributes.of({ 'aria-label': label, 'aria-multiline': 'true' }),
+          // Holding Ctrl+Enter repeats the key; run once per press, not once per repeat.
+          Prec.highest(
+            EditorView.domEventHandlers({
+              keydown: (event) => {
+                if (!(isRepeatedEnter(event.key, event.repeat) && (event.ctrlKey || event.metaKey))) return false
+                event.preventDefault()
+                return true
+              },
+            }),
+          ),
           keymap.of([
             {
               key: 'Mod-Enter',

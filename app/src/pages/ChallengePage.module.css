@@ -168,3 +168,8 @@
     top: var(--space-6);
   }
 }
+
+.solvedNote {
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+}

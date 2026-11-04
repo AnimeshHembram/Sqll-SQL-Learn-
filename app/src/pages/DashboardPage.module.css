@@ -138,3 +138,19 @@
     grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 }
+
+/* Progress */
+.moduleBar {
+  max-width: 24rem;
+  margin-top: var(--space-2);
+}
+
+.quizMeta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: var(--space-1);
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
+}

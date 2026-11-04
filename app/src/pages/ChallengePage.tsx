@@ -7,9 +7,11 @@ import { HintList } from '../components/challenges/HintList.tsx'
 import { SolutionPanel } from '../components/challenges/SolutionPanel.tsx'
 import { Tag } from '../components/challenges/Tag.tsx'
 import { Prose } from '../components/content/Prose.tsx'
+import { CompletionBadge } from '../components/progress/CompletionBadge.tsx'
+import { formatDate } from '../components/progress/format.ts'
 import { QueryResults } from '../components/sql/QueryResults.tsx'
 import { SchemaExplorer } from '../components/sql/SchemaExplorer.tsx'
-import { SqlEditor } from '../components/sql/SqlEditor.tsx'
+import { SqlEditor, type SqlEditorHandle } from '../components/sql/SqlEditor.tsx'
 import { Breadcrumbs } from '../components/ui/Breadcrumbs.tsx'
 import { Button } from '../components/ui/Button.tsx'
 import { Card } from '../components/ui/Card.tsx'
@@ -18,16 +20,24 @@ import { CHALLENGES, challengePath, findChallenge, type ChallengeLocation } from
 import { findModule, modulePath } from '../content/index.ts'
 import { updateChallengeSession, useChallengeSession } from '../features/challenges/challengeSession.ts'
 import type { Feedback } from '../features/challenges/evaluate.ts'
+import {
+  recordChallengeSubmission,
+  recordHintsUsed,
+  recordSolutionRevealed,
+  useProgress,
+} from '../features/progress/progressStore.ts'
 import type { ExecuteResult, TableInfo } from '../features/sql/protocol.ts'
 import { challengeEngine, QUERY_TIME_LIMIT_MS } from '../features/sql/sqlEngine.ts'
 import { useSqlEngine } from '../features/sql/useSqlEngine.ts'
 import { NotFoundPage } from './NotFoundPage.tsx'
+import { useFocusReturn } from '../lib/useFocusReturn.ts'
 import styles from './ChallengePage.module.css'
 
 type Outcome =
   | { kind: 'run'; result: ExecuteResult }
   | { kind: 'submission'; feedback: Feedback; result: ExecuteResult }
   | { kind: 'engine-error'; text: string }
+  | { kind: 'message'; text: string }
 
 const isApple = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.userAgent)
 const RUN_SHORTCUT = isApple ? '⌘ + Enter' : 'Ctrl + Enter'
@@ -44,12 +54,26 @@ function ChallengeWorkspace({ location }: { location: ChallengeLocation }) {
   const { challenge, index, previous, next } = location
   const engine = useSqlEngine(challengeEngine)
   const session = useChallengeSession(challenge.id)
+  const saved = useProgress().challenges[challenge.id]
+  const solvedBefore = Boolean(saved?.solvedAt)
   const sql = session.draft ?? challenge.starterSql
   const [outcome, setOutcome] = useState<Outcome | null>(null)
   const [busy, setBusy] = useState<'run' | 'submit' | null>(null)
   const [allTables, setAllTables] = useState<TableInfo[] | null>(null)
+  // Increases with every new outcome, so the result area is redrawn (and briefly fades in) even when the outcome is the same.
+  const [outcomeVersion, setOutcomeVersion] = useState(0)
   // Only the latest request may show its outcome.
   const latest = useRef(0)
+  const submitButtonRef = useRef<HTMLButtonElement>(null)
+  const runButtonRef = useRef<HTMLButtonElement>(null)
+  // The button that started the current request, which gets focus back if Stop had it.
+  const lastActionRef = useRef<HTMLButtonElement | null>(null)
+  const stopFocus = useFocusReturn(busy !== null, lastActionRef)
+
+  const show = useCallback((next: Outcome) => {
+    setOutcome(next)
+    setOutcomeVersion((version) => version + 1)
+  }, [])
 
   const engineUsable = engine.sqliteVersion !== null && engine.status !== 'failed'
   const module = challenge.moduleId ? findModule(challenge.moduleId) : undefined
@@ -92,13 +116,19 @@ function ChallengeWorkspace({ location }: { location: ChallengeLocation }) {
 
   const perform = useCallback(
     async (mode: 'run' | 'submit') => {
-      if (busy || sql.trim() === '') return
+      if (busy) return
+      // Ctrl+Enter still reaches here when the buttons are disabled; say why nothing ran instead of doing nothing.
+      if (sql.trim() === '') {
+        show({ kind: 'message', text: 'Nothing to run yet. Write a query in the editor first.' })
+        return
+      }
       const requestId = ++latest.current
+      lastActionRef.current = mode === 'run' ? runButtonRef.current : submitButtonRef.current
       setBusy(mode)
       try {
         if (mode === 'run') {
           const result = await challengeEngine.runScratch(sql)
-          if (requestId === latest.current) setOutcome({ kind: 'run', result })
+          if (requestId === latest.current) show({ kind: 'run', result })
         } else {
           const { feedback, result } = await challengeEngine.evaluate(challenge.id, sql)
           if (requestId !== latest.current) return
@@ -106,22 +136,27 @@ function ChallengeWorkspace({ location }: { location: ChallengeLocation }) {
             submissions: current.submissions + 1,
             solved: current.solved || feedback.kind === 'correct',
           }))
-          setOutcome({ kind: 'submission', feedback, result })
+          recordChallengeSubmission(challenge.id, feedback.kind === 'correct')
+          show({ kind: 'submission', feedback, result })
         }
       } catch (error) {
         if (requestId === latest.current) {
-          setOutcome({ kind: 'engine-error', text: error instanceof Error ? error.message : String(error) })
+          show({ kind: 'engine-error', text: error instanceof Error ? error.message : String(error) })
         }
       } finally {
         if (requestId === latest.current) setBusy(null)
       }
     },
-    [busy, sql, challenge.id],
+    [busy, sql, challenge.id, show],
   )
+
+  const editorRef = useRef<SqlEditorHandle>(null)
 
   const resetQuery = () => {
     updateChallengeSession(challenge.id, () => ({ draft: null }))
     setOutcome(null)
+    // Reset query disables itself, which would drop focus to the top of the page; the editor is where you go next.
+    editorRef.current?.focus()
   }
 
   const queryTable = (tableName: string) => setSql(`SELECT *\nFROM "${tableName.replaceAll('"', '""')}"\nLIMIT 10;`)
@@ -140,6 +175,14 @@ function ChallengeWorkspace({ location }: { location: ChallengeLocation }) {
           <span className="visually-hidden">Topic: </span>
           {challenge.topic}
         </Tag>
+        {saved?.solvedAt && (
+          <>
+            <CompletionBadge label="Solved" />
+            <span className={styles.solvedNote}>
+              on {formatDate(saved.solvedAt)}, {saved.attempts} {saved.attempts === 1 ? 'submission' : 'submissions'} in total
+            </span>
+          </>
+        )}
       </p>
 
       <div className={styles.layout}>
@@ -184,21 +227,35 @@ function ChallengeWorkspace({ location }: { location: ChallengeLocation }) {
           </Card>
 
           <Card title="Your query">
-            <SqlEditor value={sql} onChange={setSql} onRun={() => void perform('run')} label="Your SQL query" schema={schemaForCompletion} />
+            <SqlEditor
+              ref={editorRef}
+              value={sql}
+              onChange={setSql}
+              onRun={() => void perform('run')}
+              label="Your SQL query"
+              schema={schemaForCompletion}
+            />
             <div className={styles.toolbar}>
               <div className={styles.actions}>
-                <Button onClick={() => void perform('submit')} disabled={busy !== null || engine.status === 'failed' || sql.trim() === ''}>
+                <Button
+                  ref={submitButtonRef}
+                  onClick={() => void perform('submit')}
+                  busy={busy === 'submit'}
+                  disabled={busy === 'run' || engine.status === 'failed' || sql.trim() === ''}
+                >
                   {busy === 'submit' ? 'Checking…' : 'Submit answer'}
                 </Button>
                 <Button
+                  ref={runButtonRef}
                   variant="secondary"
                   onClick={() => void perform('run')}
-                  disabled={busy !== null || engine.status === 'failed' || sql.trim() === ''}
+                  busy={busy === 'run'}
+                  disabled={busy === 'submit' || engine.status === 'failed' || sql.trim() === ''}
                 >
                   {busy === 'run' ? 'Running…' : 'Run query'}
                 </Button>
                 {busy && (
-                  <Button variant="secondary" onClick={() => challengeEngine.stop()}>
+                  <Button variant="secondary" onClick={() => challengeEngine.stop()} {...stopFocus}>
                     Stop
                   </Button>
                 )}
@@ -216,7 +273,9 @@ function ChallengeWorkspace({ location }: { location: ChallengeLocation }) {
 
           <Card title="Result and feedback">
             <div aria-live="polite" className={styles.outcome}>
-              <OutcomeView outcome={outcome} busy={busy} engineStatus={engine.status} />
+              <div key={outcomeVersion} className={outcomeVersion > 0 ? 'fade-in' : undefined}>
+                <OutcomeView outcome={outcome} busy={busy} engineStatus={engine.status} />
+              </div>
             </div>
             {engine.status === 'failed' && (
               <div className={styles.failure} role="alert">
@@ -236,15 +295,22 @@ function ChallengeWorkspace({ location }: { location: ChallengeLocation }) {
           <HintList
             hints={challenge.hints}
             shown={session.hintsShown}
-            onShowNext={() => updateChallengeSession(challenge.id, (current) => ({ hintsShown: Math.min(current.hintsShown + 1, challenge.hints.length) }))}
+            onShowNext={() => {
+              const hintsShown = Math.min(session.hintsShown + 1, challenge.hints.length)
+              updateChallengeSession(challenge.id, () => ({ hintsShown }))
+              recordHintsUsed(challenge.id, hintsShown)
+            }}
           />
 
           <SolutionPanel
             challengeId={challenge.id}
-            unlocked={session.submissions > 0 || session.hintsShown >= challenge.hints.length}
+            unlocked={solvedBefore || session.submissions > 0 || session.hintsShown >= challenge.hints.length}
             revealed={session.revealed}
-            solved={session.solved}
-            onReveal={() => updateChallengeSession(challenge.id, () => ({ revealed: true }))}
+            solved={session.solved || solvedBefore}
+            onReveal={() => {
+              updateChallengeSession(challenge.id, () => ({ revealed: true }))
+              recordSolutionRevealed(challenge.id)
+            }}
           />
         </div>
 
@@ -290,6 +356,7 @@ function OutcomeView({ outcome, busy, engineStatus }: { outcome: Outcome | null;
       </p>
     )
   }
+  if (outcome.kind === 'message') return <p className={styles.status}>{outcome.text}</p>
   if (outcome.kind === 'engine-error') {
     return (
       <div className={styles.failure} role="alert">

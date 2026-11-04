@@ -1,15 +1,18 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { Link, useParams } from 'react-router'
 import { NAV } from '../app/navigation.ts'
 import { DifficultyBadge } from '../components/challenges/DifficultyBadge.tsx'
 import { Tag } from '../components/challenges/Tag.tsx'
 import { Prose } from '../components/content/Prose.tsx'
+import { formatDate } from '../components/progress/format.ts'
 import { Breadcrumbs } from '../components/ui/Breadcrumbs.tsx'
 import { Button } from '../components/ui/Button.tsx'
 import { Card } from '../components/ui/Card.tsx'
 import { PageHeader } from '../components/ui/PageHeader.tsx'
 import { QUIZZES, findQuiz, quizPath, type ContentQuiz, type QuizQuestion } from '../content/challenges.ts'
 import type { QuestionType } from '../content/types.ts'
+import { recordQuizResult, useProgress } from '../features/progress/progressStore.ts'
+import { useFocusWhenDone } from '../lib/useFocusReturn.ts'
 import { NotFoundPage } from './NotFoundPage.tsx'
 import styles from './QuizPage.module.css'
 
@@ -33,14 +36,29 @@ export function QuizPage() {
   return <QuizRunner key={quiz.id} quiz={quiz} />
 }
 
-/** Answers live in this component only: leaving the page or reloading starts the quiz again. */
+/**
+ * Answers live in this component only: leaving the page or reloading starts the
+ * quiz again. When every answer has been checked, the score is saved as progress.
+ */
 function QuizRunner({ quiz }: { quiz: ContentQuiz }) {
   const [answers, setAnswers] = useState<Record<string, Answer>>({})
   const [attempt, setAttempt] = useState(0)
+  const saved = useProgress().quizzes[quiz.id]
 
   const answerOf = (question: QuizQuestion): Answer => answers[question.id] ?? { selected: null, checked: false }
   const update = (question: QuizQuestion, patch: Partial<Answer>) =>
     setAnswers((current) => ({ ...current, [question.id]: { ...answerOf(question), ...patch } }))
+
+  // Checking the last unchecked answer finishes the quiz and saves the score.
+  const check = (question: QuizQuestion) => {
+    const after = { ...answers, [question.id]: { ...answerOf(question), checked: true } }
+    setAnswers(after)
+    const results = quiz.questions.map((item) => after[item.id])
+    if (results.every((result) => result?.checked)) {
+      const score = quiz.questions.filter((item) => after[item.id]?.selected === item.correctIndex).length
+      recordQuizResult(quiz.id, score, quiz.questions.length)
+    }
+  }
 
   const checked = quiz.questions.filter((question) => answerOf(question).checked)
   const correct = checked.filter((question) => answerOf(question).selected === question.correctIndex)
@@ -59,7 +77,7 @@ function QuizRunner({ quiz }: { quiz: ContentQuiz }) {
       <PageHeader
         title={quiz.title}
         description={quiz.summary}
-        meta={`${quiz.questions.length} questions. About ${quiz.durationMinutes} minutes. Choose an answer, then check it to see the explanation. Nothing is saved.`}
+        meta={`${quiz.questions.length} questions. About ${quiz.durationMinutes} minutes. Choose an answer, then check it to see the explanation. Your score is saved in this browser when you finish.`}
       />
       <p className={styles.tags}>
         <DifficultyBadge level={quiz.difficulty} />
@@ -78,7 +96,7 @@ function QuizRunner({ quiz }: { quiz: ContentQuiz }) {
               total={quiz.questions.length}
               answer={answerOf(question)}
               onSelect={(selected) => update(question, { selected })}
-              onCheck={() => update(question, { checked: true })}
+              onCheck={() => check(question)}
             />
           </li>
         ))}
@@ -92,6 +110,12 @@ function QuizRunner({ quiz }: { quiz: ContentQuiz }) {
               ? `You have not checked any answers yet. ${quiz.questions.length} questions to go.`
               : `${checked.length} of ${quiz.questions.length} answers checked, ${correct.length} correct so far.`}
         </p>
+        {saved && (
+          <p className={styles.note}>
+            Best score: {saved.bestScore} of {saved.total}. Finished {saved.attempts}{' '}
+            {saved.attempts === 1 ? 'time' : 'times'}, most recently on {formatDate(saved.lastTakenAt)}.
+          </p>
+        )}
         {finished && (
           <p className={styles.note}>
             {correct.length === quiz.questions.length
@@ -129,6 +153,9 @@ interface QuestionCardProps {
 function QuestionCard({ question, number, total, answer, onSelect, onCheck }: QuestionCardProps) {
   const name = `question-${question.id}`
   const isCorrect = answer.checked && answer.selected === question.correctIndex
+  const resultRef = useRef<HTMLDivElement>(null)
+  // "Check answer" disappears once the answer is checked; keyboard users continue from the verdict.
+  useFocusWhenDone(answer.checked, resultRef)
 
   return (
     <fieldset className={styles.question} data-question={question.id}>
@@ -188,7 +215,7 @@ function QuestionCard({ question, number, total, answer, onSelect, onCheck }: Qu
 
       <div aria-live="polite">
         {answer.checked && (
-          <div className={isCorrect ? styles.right : styles.wrongResult}>
+          <div className={isCorrect ? styles.right : styles.wrongResult} ref={resultRef} tabIndex={-1}>
             <p className={styles.verdict}>
               <span aria-hidden="true">{isCorrect ? '✓ ' : '✗ '}</span>
               {isCorrect ? 'Correct.' : 'Not quite. The correct answer is marked above.'}

@@ -3,14 +3,16 @@ import { useLocation, useNavigate } from 'react-router'
 import { NAV } from '../app/navigation.ts'
 import { QueryResults } from '../components/sql/QueryResults.tsx'
 import { SchemaExplorer } from '../components/sql/SchemaExplorer.tsx'
-import { SqlEditor } from '../components/sql/SqlEditor.tsx'
+import { SqlEditor, type SqlEditorHandle } from '../components/sql/SqlEditor.tsx'
 import { Button } from '../components/ui/Button.tsx'
 import { Card } from '../components/ui/Card.tsx'
 import { ConfirmDialog } from '../components/ui/ConfirmDialog.tsx'
 import { PageHeader } from '../components/ui/PageHeader.tsx'
+import { recordPracticeRun } from '../features/progress/progressStore.ts'
 import type { ExecuteResult, TableInfo } from '../features/sql/protocol.ts'
 import { EngineError, QUERY_TIME_LIMIT_MS, sqlEngine } from '../features/sql/sqlEngine.ts'
 import { useSqlEngine } from '../features/sql/useSqlEngine.ts'
+import { useFocusReturn } from '../lib/useFocusReturn.ts'
 import styles from './PracticePage.module.css'
 
 /** What the editor holds, kept while the learner visits other pages in this tab. */
@@ -39,8 +41,18 @@ export function PracticePage() {
   const [tables, setTables] = useState<TableInfo[] | null>(null)
   const [schemaKey, setSchemaKey] = useState(0)
   const [confirmingReset, setConfirmingReset] = useState(false)
+  // Increases with every new outcome, so the result area is redrawn (and briefly fades in) even when a rerun gives the same result.
+  const [outcomeVersion, setOutcomeVersion] = useState(0)
   // Each run gets a number; only the latest run may show its result.
   const latestRun = useRef(0)
+  const runButtonRef = useRef<HTMLButtonElement>(null)
+  const editorRef = useRef<SqlEditorHandle>(null)
+  const stopFocus = useFocusReturn(running, runButtonRef)
+
+  const show = useCallback((next: Outcome) => {
+    setOutcome(next)
+    setOutcomeVersion((version) => version + 1)
+  }, [])
 
   const engineUsable = engine.sqliteVersion !== null && engine.status !== 'failed'
 
@@ -85,14 +97,22 @@ export function PracticePage() {
 
   const run = useCallback(async () => {
     if (running) return
+    // Ctrl+Enter still reaches here when the Run button is disabled; say why nothing ran instead of doing nothing.
+    if (sql.trim() === '') {
+      show({ kind: 'message', text: 'Nothing to run yet. Write a query in the editor first.' })
+      return
+    }
     const runId = ++latestRun.current
     setRunning(true)
     try {
       const result = await sqlEngine.run(sql)
-      if (runId === latestRun.current) setOutcome({ kind: 'result', result })
+      // A run counts towards today's activity, including one that reports an SQL error: that is still practice.
+      // Input with only comments runs no statement, so it does not count.
+      if (result.statements.length > 0 || result.error) recordPracticeRun()
+      if (runId === latestRun.current) show({ kind: 'result', result })
     } catch (error) {
       if (runId === latestRun.current) {
-        setOutcome({ kind: 'engine-error', text: error instanceof Error ? error.message : String(error) })
+        show({ kind: 'engine-error', text: error instanceof Error ? error.message : String(error) })
       }
     } finally {
       if (runId === latestRun.current) {
@@ -100,16 +120,16 @@ export function PracticePage() {
         setSchemaKey((key) => key + 1)
       }
     }
-  }, [running, sql])
+  }, [running, sql, show])
 
   const resetDatabase = async () => {
     setConfirmingReset(false)
     latestRun.current += 1
     try {
       await sqlEngine.reset()
-      setOutcome({ kind: 'message', text: 'The database was reset to the original bookstore data.' })
+      show({ kind: 'message', text: 'The database was reset to the original bookstore data.' })
     } catch (error) {
-      setOutcome({
+      show({
         kind: 'engine-error',
         text: error instanceof EngineError ? error.message : 'The database could not be reset. Try again.',
       })
@@ -128,18 +148,38 @@ export function PracticePage() {
       <div className={styles.layout}>
         <div className={styles.main}>
           <Card title="Query">
-            <SqlEditor value={sql} onChange={updateSql} onRun={() => void run()} label="SQL query" schema={schemaForCompletion} />
+            <SqlEditor
+              ref={editorRef}
+              value={sql}
+              onChange={updateSql}
+              onRun={() => void run()}
+              label="SQL query"
+              schema={schemaForCompletion}
+            />
             <div className={styles.toolbar}>
               <div className={styles.actions}>
-                <Button onClick={() => void run()} disabled={running || engine.status === 'failed'}>
+                <Button
+                  ref={runButtonRef}
+                  onClick={() => void run()}
+                  busy={running}
+                  disabled={engine.status === 'failed' || sql.trim() === ''}
+                >
                   {running ? 'Running…' : 'Run'}
                 </Button>
                 {running && (
-                  <Button variant="secondary" onClick={() => sqlEngine.stop()}>
+                  <Button variant="secondary" onClick={() => sqlEngine.stop()} {...stopFocus}>
                     Stop
                   </Button>
                 )}
-                <Button variant="secondary" onClick={() => updateSql('')} disabled={sql === ''}>
+                <Button
+                  variant="secondary"
+                  onClick={() => {
+                    updateSql('')
+                    // Clear disables itself, which would drop focus to the top of the page; the editor is where you go next.
+                    editorRef.current?.focus()
+                  }}
+                  disabled={sql === ''}
+                >
                   Clear
                 </Button>
               </div>
@@ -169,9 +209,13 @@ export function PracticePage() {
                 </Button>
               </div>
             )}
-            {outcome?.kind === 'result' && <QueryResults result={outcome.result} />}
+            {outcome?.kind === 'result' && (
+              <div key={outcomeVersion} className="fade-in">
+                <QueryResults result={outcome.result} />
+              </div>
+            )}
             {outcome?.kind === 'engine-error' && (
-              <div className={styles.engineError} role="alert">
+              <div key={outcomeVersion} className={`${styles.engineError} fade-in`} role="alert">
                 {outcome.text}
               </div>
             )}
@@ -217,7 +261,9 @@ function EngineStatusText({ running, outcome }: { running: boolean; outcome: Out
     const { statements, error, durationMs } = outcome.result
     const ran = statements.length
     const time = durationMs < 1 ? 'under 1 ms' : `${Math.round(durationMs)} ms`
+    if (error && ran === 0) return <>The query failed. SQLite's message is below.</>
     if (error) return <>Stopped at an error after {ran} successful {ran === 1 ? 'statement' : 'statements'}.</>
+    if (ran === 0) return <>Nothing ran: the editor contains only comments or blank lines.</>
     return (
       <>
         Ran {ran} {ran === 1 ? 'statement' : 'statements'} in {time}.

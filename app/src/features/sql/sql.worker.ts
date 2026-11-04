@@ -17,18 +17,15 @@ import { solutions } from 'virtual:sql-learner-challenge-solutions'
 import bookstoreSql from '../../content/datasets/bookstore.sql?raw'
 import type { ChallengeSolution } from '../../content/types.ts'
 import { evaluateRun, type RunOutcome } from '../challenges/evaluate.ts'
-import {
-  MAX_ROWS_COUNTED,
-  MAX_ROWS_RETURNED,
-  type CellValue,
-  type ColumnInfo,
-  type EngineInfo,
-  type EvaluationResult,
-  type ExecuteResult,
-  type StatementResult,
-  type TableInfo,
-  type WorkerRequest,
-  type WorkerResponse,
+import { execute } from './execute.ts'
+import type {
+  ColumnInfo,
+  EngineInfo,
+  EvaluationResult,
+  ExecuteResult,
+  TableInfo,
+  WorkerRequest,
+  WorkerResponse,
 } from './protocol.ts'
 
 let sqlJs: Promise<SqlJsStatic> | null = null
@@ -50,57 +47,6 @@ async function freshDatabase(): Promise<Database> {
 async function sessionDatabase(): Promise<Database> {
   session ??= await freshDatabase()
   return session
-}
-
-function toCell(value: unknown): CellValue {
-  if (value === null || typeof value === 'string' || typeof value === 'number') return value
-  if (value instanceof Uint8Array) return { blob: value.byteLength }
-  return String(value)
-}
-
-function execute(database: Database, sql: string): ExecuteResult {
-  const started = performance.now()
-  const statements: StatementResult[] = []
-  let statementIndex = 0
-
-  try {
-    for (const statement of database.iterateStatements(sql)) {
-      try {
-        const columns = statement.getColumnNames()
-        const rows: CellValue[][] = []
-        let totalRows = 0
-        let countCapped = false
-        while (statement.step()) {
-          totalRows += 1
-          if (rows.length < MAX_ROWS_RETURNED) rows.push(statement.get().map(toCell))
-          if (totalRows >= MAX_ROWS_COUNTED) {
-            // Only "more than" if another row really exists.
-            countCapped = statement.step()
-            break
-          }
-        }
-        statements.push({
-          sql: statement.getSQL(),
-          columns,
-          rows,
-          totalRows,
-          countCapped,
-          rowsModified: database.getRowsModified(),
-        })
-      } finally {
-        statement.free()
-      }
-      statementIndex += 1
-    }
-  } catch (error) {
-    return {
-      statements,
-      error: { message: error instanceof Error ? error.message : String(error), statementIndex },
-      durationMs: performance.now() - started,
-    }
-  }
-
-  return { statements, error: null, durationMs: performance.now() - started }
 }
 
 /**

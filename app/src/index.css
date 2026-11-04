@@ -98,3 +98,17 @@ svg {
     scroll-behavior: auto !important;
   }
 }
+
+/*
+ * A new result settles in quickly, so running the same query again is visibly
+ * a new run. Subtle on purpose; reduced-motion users get no movement (see above).
+ */
+.fade-in {
+  animation: fade-in var(--duration-base) var(--ease-standard);
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0.35;
+  }
+}

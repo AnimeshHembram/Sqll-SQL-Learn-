@@ -15,12 +15,39 @@ export function readStored(key: string): unknown {
   }
 }
 
-export function writeStored(key: string, value: unknown): void {
+/** Saves a value. Returns false if it could not be saved (storage blocked or full). */
+export function writeStored(key: string, value: unknown): boolean {
   try {
     window.localStorage.setItem(PREFIX + key, JSON.stringify(value))
+    return true
   } catch {
     // Storage unavailable: the value is simply not remembered.
+    return false
   }
+}
+
+/** True when this browser lets SQL Learner save data. */
+export function isStorageAvailable(): boolean {
+  try {
+    const probe = `${PREFIX}probe`
+    window.localStorage.setItem(probe, '1')
+    window.localStorage.removeItem(probe)
+    return true
+  } catch {
+    return false
+  }
+}
+
+/**
+ * Calls `listener` when another tab changes or clears the stored value.
+ * (The browser does not send this event to the tab that made the change.)
+ */
+export function subscribeStored(key: string, listener: () => void): () => void {
+  const handle = (event: StorageEvent) => {
+    if (event.key === null || event.key === PREFIX + key) listener()
+  }
+  window.addEventListener('storage', handle)
+  return () => window.removeEventListener('storage', handle)
 }
 
 /** Removes everything SQL Learner has saved in this browser. Returns false if storage is unavailable. */

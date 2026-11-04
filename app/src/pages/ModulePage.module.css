@@ -22,3 +22,12 @@
 .intro {
   margin-bottom: var(--space-8);
 }
+
+.progress {
+  flex: 1 1 14rem;
+}
+
+.progress dd {
+  display: grid;
+  gap: var(--space-2);
+}

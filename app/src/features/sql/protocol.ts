@@ -5,8 +5,11 @@
 
 import type { Feedback } from '../challenges/evaluate.ts'
 
-/** A single value in a result. BLOBs are summarised by size rather than sent whole. */
-export type CellValue = string | number | null | { blob: number }
+/**
+ * A single value in a result. Integers too large for an exact JavaScript number
+ * are sent as BigInt. BLOBs are summarised by size rather than sent whole.
+ */
+export type CellValue = string | number | bigint | null | { blob: number }
 
 /** Rows sent back per statement. More rows are counted, but not sent or displayed. */
 export const MAX_ROWS_RETURNED = 1000

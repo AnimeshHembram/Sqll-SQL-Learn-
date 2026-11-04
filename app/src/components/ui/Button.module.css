@@ -12,13 +12,25 @@
   line-height: 1;
   text-decoration: none;
   cursor: pointer;
+  /* The pressed state below replaces the browser's grey tap flash on touch screens. */
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
   transition:
     background-color var(--duration-fast) var(--ease-standard),
-    border-color var(--duration-fast) var(--ease-standard);
+    border-color var(--duration-fast) var(--ease-standard),
+    box-shadow var(--duration-fast) var(--ease-standard),
+    transform var(--duration-fast) var(--ease-standard);
 }
 
 .button:focus-visible {
   border-radius: var(--radius-md);
+}
+
+/* Smaller buttons under lesson examples. Still at least 36px tall. */
+.small {
+  min-height: 2.25rem;
+  padding: 0 var(--space-4);
+  font-size: var(--text-sm);
 }
 
 .primary,
@@ -28,10 +40,6 @@
 
 .primary {
   background: var(--color-primary);
-}
-
-.primary:hover {
-  background: var(--color-primary-hover);
 }
 
 .secondary,
@@ -44,11 +52,69 @@
   border-color: var(--color-border-strong);
 }
 
-.secondary:hover {
+/* Hover and press feedback only for buttons that can be used. */
+.primary:hover:not(:disabled, [aria-disabled='true']) {
+  background: var(--color-primary-hover);
+}
+
+.secondary:hover:not(:disabled, [aria-disabled='true']) {
   background: var(--color-surface-muted);
+}
+
+/* Pressed: by pointer or touch (:active), or by Enter or Space ([data-pressed]). */
+.button:active:not(:disabled, [aria-disabled='true']),
+.button[data-pressed] {
+  transform: translateY(1px);
+  box-shadow: inset 0 2px 4px rgb(0 0 0 / 0.2);
+}
+
+.primary:active:not(:disabled, [aria-disabled='true']),
+.primary[data-pressed] {
+  background: var(--color-primary-hover);
+}
+
+.secondary:active:not(:disabled, [aria-disabled='true']),
+.secondary[data-pressed] {
+  background: var(--color-surface-muted);
+  border-color: var(--color-text-muted);
+}
+
+/* Keep the focus ring visible while pressed. */
+.button:focus-visible:active,
+.button:focus-visible[data-pressed] {
+  box-shadow:
+    var(--focus-ring),
+    inset 0 2px 4px rgb(0 0 0 / 0.2);
 }
 
 .button:disabled {
   opacity: 0.55;
   cursor: not-allowed;
+}
+
+/* Running: the label says what is happening and a spinner shows it is still going. */
+.button[aria-busy='true'] {
+  cursor: progress;
+}
+
+.spinner {
+  width: 1em;
+  height: 1em;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: spin 700ms linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* With reduced motion the spinner stays still: a broken ring still reads as "working". */
+@media (prefers-reduced-motion: reduce) {
+  .spinner {
+    animation: none;
+  }
 }

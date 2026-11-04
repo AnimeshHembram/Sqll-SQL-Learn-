@@ -1,3 +1,5 @@
+import { useRef } from 'react'
+import { useFocusWhenDone } from '../../lib/useFocusReturn.ts'
 import { Button } from '../ui/Button.tsx'
 import { Card } from '../ui/Card.tsx'
 import styles from './HintList.module.css'
@@ -14,13 +16,21 @@ interface HintListProps {
 export function HintList({ hints, shown, onShowNext }: HintListProps) {
   const visible = hints.slice(0, shown)
   const allShown = shown >= hints.length
+  const lastHintRef = useRef<HTMLLIElement>(null)
+  // The button disappears after the last hint; keyboard users continue from that hint, not the top of the page.
+  useFocusWhenDone(allShown, lastHintRef)
 
   return (
     <Card title="Hints" description={`Hints used: ${shown} of ${hints.length}. Each hint gives away a little more.`}>
       {visible.length > 0 && (
         <ol className={styles.list}>
           {visible.map((hint, index) => (
-            <li key={index} className={styles.hint}>
+            <li
+              key={index}
+              className={styles.hint}
+              ref={index === visible.length - 1 ? lastHintRef : undefined}
+              tabIndex={index === visible.length - 1 ? -1 : undefined}
+            >
               <span className={styles.number}>Hint {index + 1}</span>
               {/* Built from the challenge's Markdown, which the build checks for unsafe content. */}
               <span dangerouslySetInnerHTML={{ __html: hint }} />

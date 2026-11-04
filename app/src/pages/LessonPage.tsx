@@ -3,6 +3,7 @@ import { useParams } from 'react-router'
 import { NAV } from '../app/navigation.ts'
 import { LessonPager } from '../components/content/LessonPager.tsx'
 import { LessonBody } from '../components/content/LessonBody.tsx'
+import { LessonCompletion } from '../components/progress/LessonCompletion.tsx'
 import { Breadcrumbs } from '../components/ui/Breadcrumbs.tsx'
 import { Card } from '../components/ui/Card.tsx'
 import { PageHeader } from '../components/ui/PageHeader.tsx'
@@ -50,6 +51,8 @@ export function LessonPage() {
       <article aria-label={lesson.title}>
         <LessonBody key={lesson.id} lesson={lesson} />
       </article>
+
+      <LessonCompletion location={location} />
 
       <LessonPager location={location} />
     </>

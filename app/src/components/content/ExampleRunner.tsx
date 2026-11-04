@@ -8,6 +8,7 @@ import { sqlEngine } from '../../features/sql/sqlEngine.ts'
 import { describeStatement } from '../../features/sql/statements.ts'
 import type { PracticeLocationState } from '../../pages/PracticePage.tsx'
 import { ResultTable } from '../sql/ResultTable.tsx'
+import { Button } from '../ui/Button.tsx'
 import styles from './ExampleRunner.module.css'
 
 interface ExampleRunnerProps {
@@ -30,14 +31,18 @@ type RunState =
 export function ExampleRunner({ example, number }: ExampleRunnerProps) {
   const navigate = useNavigate()
   const [state, setState] = useState<RunState>({ status: 'idle' })
+  // Increases with every finished run, so "Run again" visibly redraws the result even when it is unchanged.
+  const [runCount, setRunCount] = useState(0)
 
   const run = async () => {
+    if (state.status === 'running') return
     setState({ status: 'running' })
     try {
       setState({ status: 'done', result: await sqlEngine.runScratch(example.sql) })
     } catch (error) {
       setState({ status: 'failed', message: error instanceof Error ? error.message : String(error) })
     }
+    setRunCount((count) => count + 1)
   }
 
   const openInPractice = () => {
@@ -48,15 +53,21 @@ export function ExampleRunner({ example, number }: ExampleRunnerProps) {
     <div className={styles.runner}>
       <div className={styles.actions}>
         {/* The hidden suffix keeps the visible words at the start of the accessible name (WCAG 2.5.3). */}
-        <button type="button" className={styles.run} onClick={() => void run()} disabled={state.status === 'running'}>
+        <Button size="small" onClick={() => void run()} busy={state.status === 'running'}>
           {state.status === 'running' ? 'Running…' : state.status === 'idle' ? 'Run' : 'Run again'}
           <span className="visually-hidden"> (example {number})</span>
-        </button>
-        <button type="button" className={styles.open} onClick={openInPractice}>
+        </Button>
+        <Button size="small" variant="secondary" onClick={openInPractice}>
           Open in Practice<span className="visually-hidden"> (example {number})</span>
-        </button>
+        </Button>
       </div>
-      <div aria-live="polite">{state.status !== 'idle' && state.status !== 'running' && <Outcome example={example} state={state} />}</div>
+      <div aria-live="polite">
+        {state.status !== 'idle' && state.status !== 'running' && (
+          <div key={runCount} className="fade-in">
+            <Outcome example={example} state={state} />
+          </div>
+        )}
+      </div>
     </div>
   )
 }

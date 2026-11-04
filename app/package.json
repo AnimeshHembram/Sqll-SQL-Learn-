@@ -15,7 +15,11 @@
     "check:examples": "node --disable-warning=ExperimentalWarning scripts/check-examples.ts",
     "check:challenges": "node --disable-warning=ExperimentalWarning scripts/check-challenges.ts",
     "test:evaluation": "node --disable-warning=ExperimentalWarning --test scripts/test-evaluation.ts",
-    "check": "npm run lint && npm run check:examples && npm run check:challenges && npm run test:evaluation && npm run build"
+    "test:progress": "node --disable-warning=ExperimentalWarning --test scripts/test-progress.ts",
+    "test:sql": "node --disable-warning=ExperimentalWarning --test scripts/test-sql-execution.ts",
+    "test:interactions": "node --disable-warning=ExperimentalWarning --test scripts/test-interactions.ts",
+    "test:ui": "node scripts/test-ui.mjs",
+    "check": "npm run lint && npm run check:examples && npm run check:challenges && npm run test:evaluation && npm run test:progress && npm run test:sql && npm run test:interactions && npm run build"
   },
   "dependencies": {
     "@codemirror/autocomplete": "^6.20.3",
