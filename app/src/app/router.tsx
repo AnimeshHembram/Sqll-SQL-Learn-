@@ -1,4 +1,4 @@
-import { createBrowserRouter } from 'react-router'
+import { createBrowserRouter, createHashRouter } from 'react-router'
 import { AppShell } from '../components/layout/AppShell.tsx'
 import { ChallengeRoute } from '../pages/ChallengeRoute.tsx'
 import { ChallengesPage } from '../pages/ChallengesPage.tsx'
@@ -15,7 +15,11 @@ import { RouteErrorPage } from '../pages/RouteErrorPage.tsx'
 import { SettingsPage } from '../pages/SettingsPage.tsx'
 import { NAV } from './navigation.ts'
 
-export const router = createBrowserRouter([
+// The offline build is opened straight from disk (file://), where only the part
+// after # can change without leaving the page, so it uses #/learn style URLs.
+const createRouter = import.meta.env.MODE === 'offline' ? createHashRouter : createBrowserRouter
+
+export const router = createRouter([
   {
     path: NAV.dashboard.path,
     element: <AppShell />,

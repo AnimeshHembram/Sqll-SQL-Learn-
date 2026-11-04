@@ -10,6 +10,31 @@
   </head>
   <body>
     <div id="root"></div>
+    <!-- file-preview:start -->
+    <!--
+      Only for this file opened straight from disk (file://). The app's source
+      (src/main.tsx) cannot run without Vite, so the page opens the self-contained
+      build in dist-offline/ instead, keeping the #/ address. npm run dev and both
+      builds remove this block (see plugins/offline.ts).
+    -->
+    <script>
+      if (location.protocol === 'file:') document.write('<script src="dist-offline/build-info.js"><\/script>')
+    </script>
+    <script>
+      if (location.protocol === 'file:') {
+        if (window.sqlLearnerOfflineBuild) {
+          location.replace('dist-offline/index.html' + location.hash)
+        } else {
+          document.getElementById('root').innerHTML =
+            '<main style="max-width:36rem;margin:4rem auto;padding:0 1rem;font:16px/1.6 system-ui,sans-serif">' +
+            '<h1 style="font-size:1.5rem">SQL Learner needs a one-time build</h1>' +
+            '<p>Opened from disk, this page shows the app from the <code>dist-offline</code> folder, which has not been built yet.</p>' +
+            '<p>In a terminal in the <code>app</code> folder, run <code>npm install</code> (once) and then ' +
+            '<code>npm run build:offline</code>. Then reload this page.</p></main>'
+        }
+      }
+    </script>
+    <!-- file-preview:end -->
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

@@ -3,10 +3,12 @@
 A browser-based app for learning SQL through structured lessons, practice and challenges.
 Everything runs in the browser: no account, no server, no tracking.
 
-> Status: Phase 06 — learning progress is saved in the browser: completed lessons, solved
-> challenges, quiz scores, a daily learning streak and recent activity, shown on a personalised
-> dashboard. Progress can be exported, imported and reset from Settings. Lessons, practice,
-> challenges and quizzes work as before.
+This folder holds the app. For an overview, see the [repository README](../README.md).
+
+> Status: lessons, practice, challenges and quizzes work, and learning progress (completed
+> lessons, solved challenges, quiz scores, a daily streak) is saved in the browser and shown on the
+> dashboard. Query results report errors, empty results and multi-statement runs clearly, and the
+> app can be opened straight from disk after a build.
 
 ## Requirements
 
@@ -15,20 +17,27 @@ Everything runs in the browser: no account, no server, no tracking.
 
 ## Getting started
 
+From the repository root:
+
 ```bash
+cd app
 npm install
 npm run dev
 ```
 
-Then open the address Vite prints (usually http://localhost:5173).
+Then open the address Vite prints (usually http://localhost:5173). Run every npm command below
+from the `app` folder.
+
+Before pushing, run `npm run check`. It must pass.
 
 ## Scripts
 
 | Command           | What it does                                   |
 | ----------------- | ---------------------------------------------- |
 | `npm run dev`     | Start the development server with hot reload   |
-| `npm run build`   | Type-check and build the production files into `dist/` |
+| `npm run build`   | Type-check and build the production files into `dist/`, and the version that opens from disk into `dist-offline/` |
 | `npm run preview` | Serve the production build locally             |
+| `npm run build:offline` | Build only `dist-offline/index.html`, the version that opens from disk. See [Opening the app from disk](#opening-the-app-from-disk) |
 | `npm run lint`    | Run ESLint                                     |
 | `npm run check:examples` | Run every lesson's SQL examples in SQLite and compare them with the results shown |
 | `npm run check:challenges` | Run every challenge's solution, accepted answers and wrong answers in SQLite and check the feedback each gets |
@@ -37,13 +46,45 @@ Then open the address Vite prints (usually http://localhost:5173).
 | `npm run test:sql` | Tests for SQL execution on sql.js: empty input, errors, several statements, empty results, value types, row limits |
 | `npm run test:interactions` | Unit tests for button states (busy, disabled, pressed, keyboard activation) |
 | `npm run test:ui` | Optional browser tests for Run, Submit and Stop (pointer, keyboard, touch, focus, contrast). Needs a build and Playwright: `npm install --no-save playwright && npx playwright install chromium`. Not part of `npm run check` |
-| `npm run check`   | Run lint, both content checks, both test suites and the production build, stopping at the first failure |
+| `npm run test:offline` | Optional browser tests that open `index.html` from disk and go through lessons, practice, challenges, quizzes, progress and settings. Needs a build and Playwright (as for `test:ui`). Not part of `npm run check` |
+| `npm run check`   | Run lint, both content checks, the four unit test suites and the build, stopping at the first failure |
+
+## Opening the app from disk
+
+After a build, double-click `app/index.html` (or `app/dist-offline/index.html`) to open the full app
+in the browser, with no server: lessons, practice, challenges, quizzes, saved progress and settings
+all work.
+
+Why a build is needed: `index.html` is Vite's page. It loads `src/main.tsx`, which is TypeScript
+and JSX and imports the lessons through Vite, so no browser can run it as it is. And opened from
+disk, a page may not load scripts, styles, the SQL worker or the WebAssembly file from other files.
+
+How it works:
+
+- `npm run build` (and so `npm run check`) also makes `dist-offline/index.html`, with everything
+  inside that one file: scripts, styles, the SQL worker and the SQLite WebAssembly file (about 1.9 MB).
+  `npm run build:offline` makes only that file.
+- Opened from disk, `index.html` checks for that build and forwards to it, keeping the address
+  after `#`. If it has not been built yet, the page says which command to run. This check is in a
+  marked block in `index.html`; `npm run dev` ignores it and both builds remove it
+  (`plugins/offline.ts`).
+- In this version page addresses use `#/`, for example `dist-offline/index.html#/practice`, because
+  a page opened from disk can only change the part after `#`.
+
+Limitations: the disk version shows the code as of the last build, so run `npm run build` again
+after changing anything. Progress is saved in the browser as usual, but separately from the
+served app (`npm run dev` or `npm run preview`): browsers keep one store for pages opened from disk.
+There is no lazy loading, so the solutions are part of the page source. While forwarding, the
+browser console shows one blocked request for `src/main.tsx`; it is harmless. Tested in Chromium
+(Chrome, Edge).
 
 ## Project structure
 
 ```
+index.html        Vite's page; opened from disk, it forwards to dist-offline/ (see above)
 plugins/
   content/        Build-time loader and checker for lessons, challenges and quizzes (Vite plugin)
+  offline.ts      Builds dist-offline/index.html as a single file that opens from disk
 scripts/
   check-examples.ts    Checks lesson examples against SQLite
   check-challenges.ts  Checks challenges against SQLite
@@ -52,6 +93,7 @@ scripts/
   test-sql-execution.ts  Tests for SQL execution and result descriptions
   test-interactions.ts   Unit tests for button interaction states
   test-ui.mjs            Optional browser tests for Run, Submit and Stop
+  test-offline.mjs       Optional browser tests for the app opened from disk
 src/
   app/            Router, navigation config, focus helpers
   components/
@@ -103,7 +145,8 @@ src/
   page headings and dashboard all read from it, so a new section is added in one place.
 - **Styling:** plain CSS. Design tokens are CSS custom properties in `src/styles/tokens.css`;
   each component has its own CSS Module. Light and dark themes follow the operating system.
-- **Routing:** React Router (`createBrowserRouter`). Unknown paths show a not-found page. The
+- **Routing:** React Router (`createBrowserRouter`; `createHashRouter` in the version that opens
+  from disk). Unknown paths show a not-found page. The
   Practice page (and the editor it carries) is loaded only when it is opened.
 - **SQL engine:** SQLite compiled to WebAssembly ([sql.js](https://github.com/sql-js/sql.js)), running
   in a Web Worker (`src/features/sql/`). `execute.ts` runs the statements and collects results; it
@@ -210,13 +253,14 @@ learning, not secrets:
 ## Browser support
 
 The current and previous two major versions of Google Chrome, Mozilla Firefox and Microsoft Edge
-on desktop. Mobile browsers are supported on a best-effort basis.
+on desktop. Mobile browsers are supported on a best-effort basis. The browser tests run in
+Chromium only.
 
 ## Deployment note
 
 This is a single-page app using browser history URLs. Any static host must serve `index.html`
 for unknown paths so that opening `/learn` directly works. The Vite dev and preview servers already
-do this.
+do this. Deploy the contents of `dist/`; `dist/` and `dist-offline/` are not committed.
 
 ## Licence
 

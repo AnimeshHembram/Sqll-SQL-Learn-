@@ -26,7 +26,7 @@ export function RouteErrorPage({ standalone = false }: RouteErrorPageProps) {
           <>
             <Button onClick={() => window.location.reload()}>Reload page</Button>
             {/* A plain link, so it works even if the router is in a broken state. */}
-            <a href="/" className={styles.homeLink}>
+            <a href={import.meta.env.MODE === 'offline' ? '#/' : '/'} className={styles.homeLink}>
               Go to dashboard
             </a>
           </>

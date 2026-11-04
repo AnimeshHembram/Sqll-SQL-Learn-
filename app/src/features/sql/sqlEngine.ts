@@ -1,3 +1,4 @@
+import { createSqlWorker } from './createWorker.ts'
 import type { EngineInfo, EvaluationResult, ExecuteResult, TableInfo, WorkerRequest, WorkerResponse } from './protocol.ts'
 
 /**
@@ -152,7 +153,7 @@ export class SqlEngine {
   private async boot(): Promise<void> {
     this.setState({ status: 'starting', failure: null })
     try {
-      const worker = new Worker(new URL('./sql.worker.ts', import.meta.url), { type: 'module', name: this.options.workerName })
+      const worker = createSqlWorker(this.options.workerName)
       worker.addEventListener('message', (event: MessageEvent<WorkerResponse>) => this.receive(event.data))
       worker.addEventListener('error', (event) => {
         event.preventDefault()
