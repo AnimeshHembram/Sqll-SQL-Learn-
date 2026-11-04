@@ -8,6 +8,7 @@ export type IconName =
   | 'quiz'
   | 'reference'
   | 'settings'
+  | 'feedback'
   | 'menu'
   | 'close'
   | 'logo'
@@ -48,6 +49,12 @@ const PATHS: Record<IconName, ReactNode> = {
       <path d="M4 7h9m4 0h3M4 17h3m4 0h9" />
       <circle cx="15" cy="7" r="2" />
       <circle cx="9" cy="17" r="2" />
+    </>
+  ),
+  feedback: (
+    <>
+      <path d="M5 4h14a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1h-8l-4.5 4v-4H5a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1z" />
+      <path d="M8 8.5h8M8 12h5" />
     </>
   ),
   menu: <path d="M4 7h16M4 12h16M4 17h16" />,

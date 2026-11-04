@@ -3,6 +3,7 @@ import { AppShell } from '../components/layout/AppShell.tsx'
 import { ChallengeRoute } from '../pages/ChallengeRoute.tsx'
 import { ChallengesPage } from '../pages/ChallengesPage.tsx'
 import { DashboardPage } from '../pages/DashboardPage.tsx'
+import { FeedbackPage } from '../pages/FeedbackPage.tsx'
 import { LearnPage } from '../pages/LearnPage.tsx'
 import { LessonPage } from '../pages/LessonPage.tsx'
 import { ModulePage } from '../pages/ModulePage.tsx'
@@ -40,6 +41,7 @@ export const router = createRouter([
           { path: NAV.quizzes.path, element: <QuizzesPage /> },
           { path: `${NAV.quizzes.path}/:quizId`, element: <QuizPage /> },
           { path: NAV.reference.path, element: <ReferencePage /> },
+          { path: NAV.feedback.path, element: <FeedbackPage /> },
           { path: NAV.settings.path, element: <SettingsPage /> },
           { path: '*', element: <NotFoundPage /> },
         ],

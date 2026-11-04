@@ -1,0 +1,78 @@
+.stack {
+  display: grid;
+  gap: var(--space-5);
+  max-width: var(--reading-max-width);
+}
+
+.intro {
+  margin-bottom: var(--space-5);
+}
+
+.form {
+  display: grid;
+  gap: var(--space-5);
+}
+
+.field {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.field label {
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+}
+
+.field select,
+.field input,
+.field textarea {
+  width: 100%;
+  min-height: 2.5rem;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font: inherit;
+}
+
+.field select {
+  max-width: 24rem;
+}
+
+.field textarea {
+  resize: vertical;
+  line-height: var(--leading-normal);
+}
+
+.field input[aria-invalid='true'] {
+  border-color: var(--color-danger);
+}
+
+.error {
+  color: var(--color-danger);
+  font-size: var(--text-sm);
+}
+
+.check {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+}
+
+.check input {
+  width: 1.125rem;
+  height: 1.125rem;
+  margin-top: 0.2rem;
+  accent-color: var(--color-primary);
+}
+
+.actions {
+  display: flex;
+}
+
+.status {
+  margin-top: var(--space-4);
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
+}

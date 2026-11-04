@@ -45,9 +45,10 @@ Before pushing, run `npm run check`. It must pass.
 | `npm run test:progress` | Unit tests for saved progress (checking stored data, streaks, counts against content) |
 | `npm run test:sql` | Tests for SQL execution on sql.js: empty input, errors, several statements, empty results, value types, row limits |
 | `npm run test:interactions` | Unit tests for button states (busy, disabled, pressed, keyboard activation) |
+| `npm run test:feedback` | Unit tests for the Feedback page's GitHub issue link |
 | `npm run test:ui` | Optional browser tests for Run, Submit and Stop (pointer, keyboard, touch, focus, contrast). Needs a build and Playwright: `npm install --no-save playwright && npx playwright install chromium`. Not part of `npm run check` |
 | `npm run test:offline` | Optional browser tests that open `index.html` from disk and go through lessons, practice, challenges, quizzes, progress and settings. Needs a build and Playwright (as for `test:ui`). Not part of `npm run check` |
-| `npm run check`   | Run lint, both content checks, the four unit test suites and the build, stopping at the first failure |
+| `npm run check`   | Run lint, both content checks, the five unit test suites and the build, stopping at the first failure |
 
 ## Opening the app from disk
 
@@ -92,6 +93,7 @@ scripts/
   test-progress.ts     Unit tests for saved progress
   test-sql-execution.ts  Tests for SQL execution and result descriptions
   test-interactions.ts   Unit tests for button interaction states
+  test-feedback.ts       Unit tests for the feedback link
   test-ui.mjs            Optional browser tests for Run, Submit and Stop
   test-offline.mjs       Optional browser tests for the app opened from disk
 src/
@@ -111,6 +113,7 @@ src/
   features/sql/   SQL engine: worker, client, protocol, result comparison
   features/challenges/  Answer evaluation and per-visit challenge state
   features/progress/    Saved progress: model and checks (pure), store (localStorage + React), summaries
+  features/feedback/    Builds the pre-filled GitHub issue link for the Feedback page
   components/sql/ SqlEditor, ResultTable, QueryResults, SchemaExplorer
   pages/          One component per route
   styles/         Design tokens (colours, type, spacing, motion)
@@ -189,6 +192,7 @@ src/
 | `/quizzes`    | Quizzes       |
 | `/quizzes/:quizId` | Quiz     |
 | `/reference`  | SQL Reference |
+| `/feedback`   | Feedback      |
 | `/settings`   | Settings      |
 | anything else | Not found     |
 
@@ -249,6 +253,15 @@ learning, not secrets:
 - Correctness is checked on one dataset. A query that happens to return the right rows for this data
   (for example, filtering on a hard-coded value) is accepted. Explanations point out such shortcuts.
 - Equal results are equal answers: SQL style, performance and readability are not assessed.
+
+## Feedback
+
+The Feedback page (bottom of the sidebar, above Settings) asks what the feedback is about, a summary
+and optional details, then opens a new, pre-filled issue on the project's GitHub repository in a new
+tab. The app sends nothing itself: the learner reviews the issue on GitHub and submits it there,
+which needs a GitHub account. Browser details are added only if the learner leaves that box ticked.
+The repository address is `NEW_ISSUE_URL` in `src/features/feedback/issueUrl.ts`; change it there
+if the repository moves.
 
 ## Browser support
 

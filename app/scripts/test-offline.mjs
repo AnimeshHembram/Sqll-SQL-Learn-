@@ -52,7 +52,7 @@ page.on('request', (request) => {
   const url = request.url().split('#')[0]
   // app/index.html itself and the files it may request before it forwards are expected.
   const expected = [entryUrl, appUrl, pathToFileURL(fileURLToPath(new URL('../dist-offline/build-info.js', import.meta.url))).href]
-  if (!url.startsWith('data:') && !url.startsWith('blob:') && !expected.includes(url) && !url.endsWith('/favicon.svg') && !url.endsWith('/src/main.tsx'))
+  if (!url.startsWith('data:') && !url.startsWith('blob:') && !expected.includes(url) && !url.endsWith('/favicon.svg') && !url.endsWith('/src/main.tsx') && !url.startsWith('https://github.com/'))
     outside.push(url)
 })
 let passed = 0
@@ -140,6 +140,16 @@ try {
     await page.waitForFunction(() => document.body.innerText.includes('Your progress was reset'))
     await page.goto(`${appUrl}#/learn/sql-fundamentals/introduction-to-select`)
     await page.getByRole('button', { name: 'Mark as complete' }).waitFor()
+  })
+
+  await check('feedback: the form opens a pre-filled GitHub issue from the disk version too', async () => {
+    await context.route('https://github.com/**', (route) => route.fulfill({ status: 200, contentType: 'text/html', body: 'ok' }))
+    await page.goto(`${appUrl}#/feedback`)
+    await page.getByLabel('Summary').fill('Works offline')
+    const [popup] = await Promise.all([context.waitForEvent('page'), page.getByRole('button', { name: 'Continue on GitHub' }).click()])
+    assert.match(popup.url(), /^https:\/\/github\.com\/AnimeshHembram\/Sqll-SQL-Learn-\/issues\/new\?/)
+    assert.match(new URL(popup.url()).searchParams.get('body'), /Opened: from disk/)
+    await popup.close()
   })
 
   await check('nothing is loaded from outside the app, and no errors are logged', async () => {

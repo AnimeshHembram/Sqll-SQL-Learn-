@@ -436,6 +436,35 @@ try {
     assert.match(await page.evaluate(() => document.activeElement.textContent), /Your progress was reset/)
   })
 
+  await check('feedback: the sidebar link opens the form, which opens a pre-filled GitHub issue', async (page, context) => {
+    // Never reach GitHub from the tests.
+    await context.route('https://github.com/**', (route) => route.fulfill({ status: 200, contentType: 'text/html', body: 'ok' }))
+    await page.goto(base)
+    const secondary = page.getByRole('navigation', { name: 'Main' }).getByRole('link')
+    const labels = await secondary.allInnerTexts()
+    assert.deepEqual(labels.slice(-2), ['Feedback', 'Settings'], 'Feedback sits above Settings at the bottom of the sidebar')
+    await page.getByRole('link', { name: 'Feedback' }).click()
+    await page.waitForURL(/\/feedback$/)
+    assert.equal(await page.getByRole('link', { name: 'Feedback' }).getAttribute('aria-current'), 'page')
+
+    // An empty summary is explained, and focus goes to the field.
+    await page.getByRole('button', { name: 'Continue on GitHub' }).click()
+    assert.match(await page.locator('main').innerText(), /Write a short summary first/)
+    assert.equal(await page.evaluate(() => document.activeElement?.getAttribute('aria-invalid')), 'true')
+
+    await page.getByLabel('What is it about?').selectOption('idea')
+    await page.getByLabel('Summary').fill('Add a dark mode switch')
+    await page.getByLabel('Details (optional)').fill("SELECT 'a & b';")
+    const [popup] = await Promise.all([context.waitForEvent('page'), page.getByRole('button', { name: 'Continue on GitHub' }).click()])
+    const url = new URL(popup.url())
+    assert.equal(`${url.origin}${url.pathname}`, 'https://github.com/AnimeshHembram/Sqll-SQL-Learn-/issues/new')
+    assert.equal(url.searchParams.get('title'), 'Idea: Add a dark mode switch')
+    assert.match(url.searchParams.get('body'), /SELECT 'a & b';/)
+    assert.match(url.searchParams.get('body'), /Browser: /)
+    assert.equal(await popup.evaluate(() => window.opener), null, 'GitHub cannot reach back into the app')
+    assert.match(await page.getByRole('status').filter({ hasText: 'GitHub opened' }).innerText(), /Nothing is sent until you submit/)
+  })
+
   assert.deepEqual(errors, [], 'no console errors')
   console.log(`\n${passed} interaction checks passed.`)
 } finally {

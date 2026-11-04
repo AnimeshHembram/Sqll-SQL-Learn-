@@ -59,6 +59,13 @@ export const NAV = {
     description: 'Syntax and examples for the SQL statements you will use most.',
     icon: 'reference',
   },
+  feedback: {
+    path: '/feedback',
+    label: 'Feedback',
+    title: 'Feedback',
+    description: 'Report a problem or suggest an improvement to SQL Learner.',
+    icon: 'feedback',
+  },
   settings: {
     path: '/settings',
     label: 'Settings',
@@ -79,4 +86,4 @@ export const PRIMARY_NAV: readonly NavItem[] = [
 ]
 
 /** Links pinned to the bottom of the sidebar. */
-export const SECONDARY_NAV: readonly NavItem[] = [NAV.settings]
+export const SECONDARY_NAV: readonly NavItem[] = [NAV.feedback, NAV.settings]

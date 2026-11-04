@@ -15,6 +15,8 @@ no server and no tracking. Progress is saved in your browser.
 - **Quizzes:** 3 quizzes with explanations and saved best scores.
 - **Progress:** completed lessons, solved challenges, quiz scores and a daily streak on the
   dashboard. You can export, import or reset it in Settings.
+- **Feedback:** a form in the sidebar that opens a pre-filled issue on this repository, so
+  learners can report problems or suggest ideas.
 
 ## Quick start
 
