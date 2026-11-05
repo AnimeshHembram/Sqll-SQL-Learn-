@@ -1,6 +1,7 @@
 import { useId, useRef, useState, type ChangeEvent } from 'react'
 import { NAV } from '../app/navigation.ts'
 import { plural } from '../components/progress/format.ts'
+import { ThemePicker } from '../components/settings/ThemePicker.tsx'
 import { Button } from '../components/ui/Button.tsx'
 import { Card } from '../components/ui/Card.tsx'
 import { ConfirmDialog } from '../components/ui/ConfirmDialog.tsx'
@@ -14,6 +15,7 @@ import {
   resetProgress,
   useProgress,
 } from '../features/progress/progressStore.ts'
+import { DEFAULT_THEME, THEMES, applyTheme, readTheme, saveTheme, type ThemeId } from '../features/theme/theme.ts'
 import { clearAllStored, isStorageAvailable } from '../lib/storage.ts'
 import { useFocusWhenDone } from '../lib/useFocusReturn.ts'
 import styles from './SettingsPage.module.css'
@@ -48,6 +50,7 @@ export function SettingsPage() {
   const progress = useProgress()
   const [storageAvailable] = useState(isStorageAvailable)
   const [message, setMessage] = useState('')
+  const [theme, setTheme] = useState<ThemeId>(readTheme)
   const [pending, setPending] = useState<Pending>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const fileInputId = useId()
@@ -94,6 +97,17 @@ export function SettingsPage() {
     setPending({ kind: 'import', progress: imported, fileName: file.name })
   }
 
+  const chooseTheme = (next: ThemeId) => {
+    const saved = saveTheme(next)
+    setTheme(next)
+    const label = THEMES.find((item) => item.id === next)?.label ?? next
+    setMessage(
+      saved
+        ? `Theme changed to ${label}.`
+        : `Theme changed to ${label} for this visit. This browser is blocking storage, so it will not be remembered.`,
+    )
+  }
+
   const confirm = () => {
     if (!pending) return
     if (pending.kind === 'import') {
@@ -109,6 +123,8 @@ export function SettingsPage() {
     } else {
       const cleared = clearAllStored()
       reloadProgress()
+      applyTheme(DEFAULT_THEME)
+      setTheme(DEFAULT_THEME)
       setMessage(cleared ? 'All saved data was deleted.' : 'This browser is blocking storage, so SQL Learner has nothing saved here.')
     }
     setPending(null)
@@ -119,7 +135,8 @@ export function SettingsPage() {
       <PageHeader title={NAV.settings.title} description={NAV.settings.description} />
       <div className={styles.stack}>
         <Card title="Appearance">
-          <p>SQL Learner follows your device's light or dark mode.</p>
+          <p>Choose how SQL Learner looks. Your choice applies to every page and is saved in this browser.</p>
+          <ThemePicker value={theme} onChange={chooseTheme} />
         </Card>
 
         <Card title="Your progress">
@@ -164,7 +181,7 @@ export function SettingsPage() {
         <Card title="Your data">
           <p>
             Besides your progress, SQL Learner remembers the last lesson you opened so the dashboard can take you back to
-            it. This is saved only in this browser and is never sent anywhere. Your practice database is not saved at all:
+            it, and the theme you chose. These are saved only in this browser and are never sent anywhere. Your practice database is not saved at all:
             it lives in this tab's memory and returns to the original data when you reload the page.
           </p>
           <div className={styles.actions}>
@@ -208,8 +225,8 @@ export function SettingsPage() {
           </p>
         ) : (
           <p>
-            This removes everything SQL Learner has saved in this browser: your progress and the last lesson you opened.
-            This cannot be undone.
+            This removes everything SQL Learner has saved in this browser: your progress, the last lesson you opened and
+            your theme. This cannot be undone.
           </p>
         )}
       </ConfirmDialog>

@@ -47,7 +47,7 @@ const editorTheme = EditorView.theme({
   '.cm-activeLine': { backgroundColor: 'var(--color-surface-muted)' },
   '.cm-activeLineGutter': { backgroundColor: 'var(--color-surface-muted)', color: 'var(--color-text)' },
   '&.cm-focused .cm-selectionBackground, .cm-selectionBackground, ::selection': {
-    backgroundColor: 'rgb(40 82 196 / 0.2)',
+    backgroundColor: 'color-mix(in srgb, var(--color-primary) 25%, transparent)',
   },
   '.cm-placeholder': { color: 'var(--color-text-muted)' },
   '.cm-tooltip': {

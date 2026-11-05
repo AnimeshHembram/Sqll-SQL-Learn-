@@ -436,6 +436,47 @@ try {
     assert.match(await page.evaluate(() => document.activeElement.textContent), /Your progress was reset/)
   })
 
+  await check('settings: each theme applies to the whole app, keeps 4.5:1 text contrast and is remembered', async (page) => {
+    for (const [label, id] of [['Black', 'black'], ['White', 'white'], ['Purple', 'purple'], ['Original', 'original']]) {
+      await page.goto(`${base}/settings`)
+      await page.getByRole('radio', { name: label }).check()
+      await page.reload()
+      assert.equal(await page.getByRole('radio', { name: label }).isChecked(), true, `${label} stays selected after a reload`)
+      await page.goto(`${base}/practice`)
+      assert.equal(await page.evaluate(() => document.documentElement.dataset.theme), id, `${label} applies on other pages`)
+      const ratios = await page.evaluate(() => {
+        const luminance = (color) => {
+          const [r, g, b] = color.match(/[\d.]+/g).slice(0, 3).map((value) => {
+            const v = Number(value) / 255
+            return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4
+          })
+          return 0.2126 * r + 0.7152 * g + 0.0722 * b
+        }
+        const token = (name) => {
+          const probe = document.createElement('span')
+          probe.style.color = getComputedStyle(document.documentElement).getPropertyValue(name)
+          document.body.append(probe)
+          const value = getComputedStyle(probe).color
+          probe.remove()
+          return value
+        }
+        const ratio = (a, b) => {
+          const [l1, l2] = [luminance(token(a)), luminance(token(b))].sort((x, y) => y - x)
+          return (l1 + 0.05) / (l2 + 0.05)
+        }
+        return {
+          text: ratio('--color-text', '--color-bg'),
+          textOnSurface: ratio('--color-text', '--color-surface'),
+          muted: ratio('--color-text-muted', '--color-surface-muted'),
+          link: ratio('--color-primary', '--color-surface'),
+          button: ratio('--color-on-primary', '--color-primary'),
+          sidebar: ratio('--color-sidebar-text', '--color-sidebar'),
+        }
+      })
+      for (const [name, value] of Object.entries(ratios)) assert.ok(value >= 4.5, `${label} ${name} contrast ${value.toFixed(2)}`)
+    }
+  })
+
   await check('feedback: the sidebar link opens the form, which opens a pre-filled GitHub issue', async (page, context) => {
     // Never reach GitHub from the tests.
     await context.route('https://github.com/**', (route) => route.fulfill({ status: 200, contentType: 'text/html', body: 'ok' }))
