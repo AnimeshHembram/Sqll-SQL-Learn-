@@ -5,6 +5,7 @@ order: 8
 difficulty: intermediate
 topic: HAVING
 summary: Filter groups with HAVING to find the genres whose books cost more than 13 on average.
+module: summarising-data
 duration: 8
 dataset: bookstore
 tables:

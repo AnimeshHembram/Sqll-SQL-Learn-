@@ -5,6 +5,7 @@ order: 7
 difficulty: intermediate
 topic: Aggregate functions
 summary: Use MIN, MAX and AVG to describe every price in one row.
+module: summarising-data
 duration: 7
 dataset: bookstore
 tables:

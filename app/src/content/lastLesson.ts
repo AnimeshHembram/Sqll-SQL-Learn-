@@ -1,5 +1,7 @@
+import type { ProgressData } from '../features/progress/progressModel.ts'
+import { isLessonComplete, nextIncompleteLesson } from '../features/progress/progressSummary.ts'
 import { readStored, writeStored } from '../lib/storage.ts'
-import { findLesson, type LessonLocation } from './index.ts'
+import { MODULES, findLesson, type LessonLocation } from './index.ts'
 
 /** Versioned so the saved shape can change later without misreading old data. */
 const KEY = 'last-lesson:v1'
@@ -24,4 +26,21 @@ export function rememberLastLesson(moduleId: string, lessonId: string): void {
 export function recallLastLesson(): LessonLocation | undefined {
   const stored = readStored(KEY)
   return isStoredLesson(stored) ? findLesson(stored.moduleId, stored.lessonId) : undefined
+}
+
+/** True for a learner who has not opened or completed any lesson yet. */
+export function isNewLearner(progress: ProgressData): boolean {
+  return !recallLastLesson() && Object.keys(progress.lessons).length === 0
+}
+
+/**
+ * The lesson to open next: the last lesson opened if it is not complete yet,
+ * otherwise the first incomplete lesson in the course. Undefined when every
+ * lesson is complete. Matches the dashboard's "Continue learning" card.
+ */
+export function lessonToContinue(progress: ProgressData): LessonLocation | undefined {
+  const last = recallLastLesson()
+  if (last && !isLessonComplete(progress, last.module.id, last.lesson.id)) return last
+  const upcoming = nextIncompleteLesson(MODULES, progress)
+  return upcoming && findLesson(upcoming.module.id, upcoming.lessonId)
 }

@@ -445,7 +445,10 @@ try {
     assert.deepEqual(labels.slice(-2), ['Feedback', 'Settings'], 'Feedback sits above Settings at the bottom of the sidebar')
     await page.getByRole('link', { name: 'Feedback' }).click()
     await page.waitForURL(/\/feedback$/)
-    assert.equal(await page.getByRole('link', { name: 'Feedback' }).getAttribute('aria-current'), 'page')
+    // The sidebar marks the link as current when React re-renders, which can land just after the URL changes.
+    const feedbackLink = page.getByRole('link', { name: 'Feedback' })
+    await feedbackLink.and(page.locator('[aria-current="page"]')).waitFor({ timeout: 5000 })
+    assert.equal(await feedbackLink.getAttribute('aria-current'), 'page')
 
     // An empty summary is explained, and focus goes to the field.
     await page.getByRole('button', { name: 'Continue on GitHub' }).click()

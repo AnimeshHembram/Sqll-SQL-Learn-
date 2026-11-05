@@ -26,3 +26,60 @@
   color: var(--color-text-muted);
   font-size: var(--text-sm);
 }
+
+/* "How each lesson works": one compact line that wraps on small screens. */
+.steps {
+  margin-bottom: var(--space-6);
+  font-size: var(--text-sm);
+}
+
+.stepsLabel {
+  color: var(--color-text-muted);
+  font-weight: var(--weight-semibold);
+}
+
+.stepList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-2);
+  margin: var(--space-1) 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.arrow {
+  margin-right: var(--space-2);
+  color: var(--color-text-muted);
+}
+
+/* A first look at SQL for newcomers. */
+.preview {
+  display: grid;
+  gap: var(--space-2);
+  max-width: 32rem;
+  margin: 0 0 var(--space-5);
+}
+
+.previewCaption {
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
+}
+
+.previewCode {
+  margin: 0;
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--color-border);
+  border-left: 3px solid var(--color-primary);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.previewCode code {
+  padding: 0;
+  background: none;
+  font-size: inherit;
+}

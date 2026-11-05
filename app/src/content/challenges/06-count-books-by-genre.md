@@ -5,6 +5,7 @@ order: 6
 difficulty: intermediate
 topic: GROUP BY
 summary: Group the books by genre and count how many each genre has.
+module: summarising-data
 duration: 8
 dataset: bookstore
 tables:
