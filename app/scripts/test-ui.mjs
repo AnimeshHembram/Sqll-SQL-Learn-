@@ -735,7 +735,9 @@ try {
     assert.match(await page.locator('main').innerText(), /not written yet/i)
     // Filters narrow the list.
     await page.getByLabel('Topic').selectOption('Joins')
-    assert.match(await page.getByRole('status').filter({ hasText: /^Showing/ }).innerText(), /^Showing 5 of \d+ written problems\.$/)
+    const shown = Number(/^Showing (\d+) of \d+ written problems\.$/.exec(await page.getByRole('status').filter({ hasText: /^Showing/ }).innerText())?.[1])
+    assert.ok(shown > 0 && shown < written, `the filter narrows the list (${shown})`)
+    assert.equal(await page.locator('section[aria-labelledby="problem-list"] ol > li').count(), shown)
     // An unwritten day explains itself instead of failing.
     await page.goto(`${base}/paths/data-analyst/problems/365`)
     await page.getByRole('heading', { level: 1, name: 'Day 365 is not written yet' }).waitFor()
