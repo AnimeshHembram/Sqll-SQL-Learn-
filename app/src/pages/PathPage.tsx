@@ -10,13 +10,14 @@ import { PageHeader } from '../components/ui/PageHeader.tsx'
 import { ProgressBar } from '../components/ui/ProgressBar.tsx'
 import { lessonPath } from '../content/index.ts'
 import { PROBLEMS_PER_PATH, findPath } from '../content/paths/catalog.ts'
+import { chapterUrl, pathContext } from '../content/paths/chapters.ts'
 import { choosePath, usePathProgress } from '../features/paths/pathStore.ts'
 import { nextStep, pathChapterCount } from '../features/paths/pathSummary.ts'
 import { useProgress } from '../features/progress/progressStore.ts'
 import { NotFoundPage } from './NotFoundPage.tsx'
 import styles from './PathPage.module.css'
 
-const PLANNED = { state: 'planned', lessons: { done: 0, total: 0 } } as const
+const PLANNED = { state: 'planned', steps: { done: 0, total: 0 }, kind: 'planned' } as const
 
 export function PathPage() {
   const { pathId = '' } = useParams()
@@ -30,8 +31,9 @@ export function PathPage() {
 
   const isCurrent = paths.activePathId === path.id
   const record = paths.paths[path.id]
-  const chapters = pathChapterCount(path, progress)
-  const next = nextStep(path, progress)
+  const context = pathContext(path.id, record)
+  const chapters = pathChapterCount(path, progress, context)
+  const next = nextStep(path, progress, context)
   const previous = paths.activePathId && !isCurrent ? findPath(paths.activePathId) : undefined
 
   const select = () => {
@@ -53,14 +55,17 @@ export function PathPage() {
         title={path.title}
         documentTitle={`${path.title} path`}
         description={path.tagline}
-        meta={isCurrent ? 'This is your current path.' : record ? 'You have followed this path before. Its progress is kept.' : undefined}
+        meta={isCurrent ? 'This is your current path.' : record ? 'You have progress in this path. It is kept.' : undefined}
         actions={
           <>
             {!isCurrent && (
               <Button onClick={select}>{previous ? `Switch to ${path.title}` : 'Make this my current path'}</Button>
             )}
             {next && (
-              <Button to={lessonPath(next.lesson.moduleId, next.lesson.lessonId)} variant={isCurrent ? 'primary' : 'secondary'}>
+              <Button
+                to={next.lesson ? lessonPath(next.lesson.moduleId, next.lesson.lessonId) : chapterUrl(path.id, next.chapter.id)}
+                variant={isCurrent ? 'primary' : 'secondary'}
+              >
                 {chapters.done === 0 && next.chapter === path.stages[0]?.chapters[0] ? 'Start' : 'Continue'}: {next.chapter.title}
               </Button>
             )}
@@ -113,10 +118,10 @@ export function PathPage() {
 
       <h2 className={styles.roadmapTitle}>Roadmap</h2>
       <p className={styles.roadmapNote}>
-        Ready chapters link to the Learn SQL lessons that teach them, and only they count towards your progress. Planned
-        chapters are shown so you can see where the path goes; they are added in later updates.
+        Ready chapters open their own chapter page or the Learn SQL lessons that teach them, and only they count towards
+        your progress. Planned chapters are shown so you can see where the path goes; they are added in later updates.
       </p>
-      <Roadmap path={path} progress={progress} />
+      <Roadmap path={path} progress={progress} context={context} />
 
       <Card title="Projects" description="Three real-world projects that bring the path together." className={styles.projects}>
         <ul className={styles.projectList}>

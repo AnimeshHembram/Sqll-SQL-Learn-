@@ -24,7 +24,7 @@ const TYPE_LABELS: Record<QuestionType, string> = {
   conceptual: 'Concept check',
 }
 
-interface Answer {
+export interface Answer {
   selected: number | null
   checked: boolean
 }
@@ -150,7 +150,7 @@ interface QuestionCardProps {
   onCheck: () => void
 }
 
-function QuestionCard({ question, number, total, answer, onSelect, onCheck }: QuestionCardProps) {
+export function QuestionCard({ question, number, total, answer, onSelect, onCheck }: QuestionCardProps) {
   const name = `question-${question.id}`
   const isCorrect = answer.checked && answer.selected === question.correctIndex
   const resultRef = useRef<HTMLDivElement>(null)

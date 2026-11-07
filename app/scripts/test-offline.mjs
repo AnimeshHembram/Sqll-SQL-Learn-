@@ -137,6 +137,16 @@ try {
     await page.waitForFunction(() => document.body.innerText.includes('Your current path: Data Analyst'))
   })
 
+  await check('sql path chapter: opens from disk, runs an example and checks an exercise', async () => {
+    await page.goto(`${appUrl}#/paths/data-analyst/conditional-logic`)
+    await page.getByRole('button', { name: /^Run/ }).first().click()
+    await page.waitForFunction(() => document.body.innerText.includes('Matches the expected output'), null, { timeout: 15000 })
+    const exercise = page.locator('[data-exercise="da-books-per-band"]')
+    await exercise.getByRole('button', { name: 'Submit answer' }).click()
+    await exercise.locator('[data-feedback]').waitFor()
+    assert.notEqual(await exercise.locator('[data-feedback]').getAttribute('data-feedback'), 'correct', 'the starter query is not accepted')
+  })
+
   await check('progress is saved: the lesson stays complete after reopening app/index.html', async () => {
     await page.goto(`${entryUrl}#/learn/sql-fundamentals/introduction-to-select`)
     await page.waitForURL(`${appUrl}#/learn/sql-fundamentals/introduction-to-select`)

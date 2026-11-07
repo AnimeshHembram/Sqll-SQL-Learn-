@@ -13,7 +13,7 @@ import path from 'node:path'
 import { test } from 'node:test'
 import { fileURLToPath } from 'node:url'
 import { loadAllContent } from '../plugins/content/index.ts'
-import { CAREER_PATHS, PROBLEMS_PER_PATH, isChapterAvailable } from '../src/content/paths/catalog.ts'
+import { CAREER_PATHS, PROBLEMS_PER_PATH, isChapterAvailable, type PathChapter } from '../src/content/paths/catalog.ts'
 import {
   emptyPathProgress,
   parsePathProgress,
@@ -21,7 +21,16 @@ import {
   updatePathRecord,
   type PathProgressData,
 } from '../src/features/paths/pathModel.ts'
-import { chapterStatus, nextStep, pathChapterCount, stageChapterCount } from '../src/features/paths/pathSummary.ts'
+import {
+  chapterRequirements,
+  chapterStatus,
+  nextStep,
+  pathChapterCount,
+  quizPassMark,
+  stageChapterCount,
+  type PathContext,
+} from '../src/features/paths/pathSummary.ts'
+import { recordChapterComplete, recordChapterQuiz, recordExerciseAttempt, recordExerciseHelp } from '../src/features/paths/pathModel.ts'
 import { emptyProgress, lessonKey, type ProgressData } from '../src/features/progress/progressModel.ts'
 
 const root = fileURLToPath(new URL('..', import.meta.url))
@@ -191,7 +200,7 @@ test('planned chapters are labelled planned and are not part of any total', () =
   assert.equal(count.done, 0)
   const plannedChapter = allChapters.find((c) => !isChapterAvailable(c))
   assert.ok(plannedChapter)
-  assert.deepEqual(chapterStatus(plannedChapter, emptyProgress()), { state: 'planned', lessons: { done: 0, total: 0 } })
+  assert.deepEqual(chapterStatus(plannedChapter, emptyProgress()), { state: 'planned', steps: { done: 0, total: 0 }, kind: 'planned' })
   const plannedStage = analyst.stages.find((s) => s.chapters.every((c) => !isChapterAvailable(c)))
   assert.ok(plannedStage)
   assert.deepEqual(stageChapterCount(plannedStage, emptyProgress()), { done: 0, total: 0, planned: plannedStage.chapters.length })
@@ -202,7 +211,7 @@ test('a ready chapter follows its lessons: not started, in progress, complete', 
   const chapter = analyst.stages[0].chapters[0]
   assert.equal(chapterStatus(chapter, emptyProgress()).state, 'not-started')
   const some = withLessons(['sql-fundamentals', 'what-is-sql'])
-  assert.deepEqual(chapterStatus(chapter, some), { state: 'in-progress', lessons: { done: 1, total: 5 } })
+  assert.deepEqual(chapterStatus(chapter, some), { state: 'in-progress', steps: { done: 1, total: 5 }, kind: 'linked' })
   const all = withLessons(...chapter.lessons.map((ref): [string, string] => [ref.moduleId, ref.lessonId]))
   assert.equal(chapterStatus(chapter, all).state, 'complete')
   assert.deepEqual(pathChapterCount(analyst, all), { done: 1, total: 2, planned: pathChapterCount(analyst, all).planned })
@@ -217,4 +226,107 @@ test('the next step is the first unfinished lesson of the first unfinished ready
     ...analyst.stages.flatMap((s) => s.chapters.flatMap((c) => c.lessons.map((ref): [string, string] => [ref.moduleId, ref.lessonId]))),
   )
   assert.equal(nextStep(analyst, everything), null, 'planned chapters are never offered as a next step')
+})
+
+// --- Written chapters (Stage 2) ------------------------------------------------------------
+
+test('every written chapter belongs to its path in the catalogue and has exercises and a quiz', () => {
+  assert.ok(content.pathModules.length > 0, 'there are written chapters')
+  for (const module of content.pathModules) {
+    const career = CAREER_PATHS.find((p) => p.id === module.id)
+    assert.ok(career, `${module.id} is a career path`)
+    const catalogueIds = career.stages.flatMap((s) => s.chapters.map((c) => c.id))
+    for (const lesson of module.lessons) {
+      assert.ok(catalogueIds.includes(lesson.id), `${module.id}/${lesson.id} is on the roadmap`)
+      const entry: PathChapter | undefined = career.stages.flatMap((s) => s.chapters).find((c) => c.id === lesson.id)
+      assert.equal(entry?.lessons.length, 0, `${lesson.id} is not also linked to Learn SQL lessons`)
+      const exercises = content.pathExercises.filter((e) => e.pathId === module.id && e.chapterId === lesson.id)
+      assert.ok(exercises.some((e) => e.kind === 'guided') && exercises.some((e) => e.kind === 'independent'), `${lesson.id} has both kinds of exercise`)
+      assert.ok(content.pathQuizzes.some((q) => q.pathId === module.id && q.id === lesson.id), `${lesson.id} has a quiz`)
+      assert.ok(lesson.examples.length >= 3, `${lesson.id} has runnable examples`)
+    }
+  }
+  const exerciseIds = content.pathExercises.map((e) => e.id)
+  assert.equal(new Set(exerciseIds).size, exerciseIds.length, 'exercise ids are unique')
+  for (const id of exerciseIds) assert.ok(!content.challenges.some((c) => c.id === id), `${id} does not clash with a challenge`)
+  for (const id of exerciseIds) assert.ok(content.solutions[id], `${id} has a solution for the worker`)
+})
+
+/** A context like the one the pages build: chapter "x" is written, with exercises e1 and e2 and a 5-question quiz. */
+function writtenContext(record?: PathProgressData['paths'][string]): PathContext {
+  return {
+    record,
+    isWritten: (id) => id === 'conditional-logic',
+    exerciseIds: (id) => (id === 'conditional-logic' ? ['e1', 'e2'] : []),
+    quizSize: (id) => (id === 'conditional-logic' ? 5 : 0),
+  }
+}
+
+test('a written chapter is complete only once marked, and can be marked only when exercises and quiz are done', () => {
+  const analyst = CAREER_PATHS[0]
+  const chapter = analyst.stages[1].chapters[0]
+  assert.equal(chapter.id, 'conditional-logic')
+  let record = selectPath(emptyPathProgress(), 'data-analyst', day(1)).paths['data-analyst']
+
+  assert.deepEqual(chapterStatus(chapter, emptyProgress(), writtenContext(record)), { state: 'not-started', steps: { done: 0, total: 3 }, kind: 'written' })
+  record = recordExerciseAttempt(record, 'e1', false, day(2))
+  assert.equal(chapterStatus(chapter, emptyProgress(), writtenContext(record)).state, 'in-progress', 'a wrong attempt starts the chapter')
+  record = recordExerciseAttempt(record, 'e1', true, day(2))
+  record = recordExerciseAttempt(record, 'e2', true, day(2))
+  assert.equal(chapterRequirements('conditional-logic', writtenContext(record)).met, false, 'the quiz is still missing')
+
+  assert.equal(quizPassMark(5), 4)
+  record = recordChapterQuiz(record, 'conditional-logic', 3, 5, day(3))
+  assert.equal(chapterRequirements('conditional-logic', writtenContext(record)).quiz.passed, false, '3 of 5 does not pass')
+  record = recordChapterQuiz(record, 'conditional-logic', 4, 5, day(3))
+  record = recordChapterQuiz(record, 'conditional-logic', 2, 5, day(4))
+  assert.equal(record.quizzes['conditional-logic'].bestScore, 4, 'a later lower score keeps the best score')
+  assert.equal(chapterRequirements('conditional-logic', writtenContext(record)).met, true)
+  assert.equal(chapterStatus(chapter, emptyProgress(), writtenContext(record)).state, 'in-progress', 'requirements met is not the same as complete')
+
+  record = recordChapterComplete(record, 'conditional-logic', day(5))
+  const completedAt = record.chapters['conditional-logic'].completedAt
+  assert.equal(chapterStatus(chapter, emptyProgress(), writtenContext(record)).state, 'complete')
+  assert.equal(recordChapterComplete(record, 'conditional-logic', day(9)).chapters['conditional-logic'].completedAt, completedAt, 'the first completion date is kept')
+
+  // Written chapters count; planned ones still do not.
+  const count = pathChapterCount(analyst, emptyProgress(), writtenContext(record))
+  assert.equal(count.total, 3, 'two linked chapters and one written chapter are ready')
+  assert.equal(count.done, 1)
+})
+
+test('exercise help is recorded without counting as solved, and solving keeps the first date', () => {
+  let record = selectPath(emptyPathProgress(), 'data-analyst', day(1)).paths['data-analyst']
+  record = recordExerciseHelp(record, 'e1', { hintsUsed: 2 })
+  record = recordExerciseHelp(record, 'e1', { hintsUsed: 1, revealedSolution: true })
+  assert.deepEqual(record.exercises.e1, { solvedAt: null, attempts: 0, hintsUsed: 2, revealedSolution: true })
+  record = recordExerciseAttempt(record, 'e1', true, day(2))
+  record = recordExerciseAttempt(record, 'e1', true, day(3))
+  assert.equal(record.exercises.e1.solvedAt, day(2).toISOString())
+  assert.equal(record.exercises.e1.attempts, 2)
+})
+
+test('chapter progress in one path never changes another path', () => {
+  let data = selectPath(selectPath(emptyPathProgress(), 'cybersecurity-analyst', day(1)), 'data-analyst', day(1))
+  const cyber = data.paths['cybersecurity-analyst']
+  data = updatePathRecord(data, 'data-analyst', (r) => recordChapterComplete(recordExerciseAttempt(r, 'e1', true, day(2)), 'conditional-logic', day(2)))
+  assert.deepEqual(data.paths['cybersecurity-analyst'], cyber)
+  assert.ok(data.paths['data-analyst'].chapters['conditional-logic'])
+})
+
+test('saved progress from Stage 1, without exercises, still loads', () => {
+  const stage1 = { version: 1, activePathId: 'data-analyst', paths: { 'data-analyst': { startedAt: day(1).toISOString(), lastSelectedAt: day(1).toISOString(), chapters: {}, quizzes: {}, problems: {}, projects: {}, badges: {} } } }
+  const parsed = parsePathProgress(stage1)
+  assert.ok(parsed)
+  assert.deepEqual(parsed.paths['data-analyst'].exercises, {})
+  assert.equal(parsed.activePathId, 'data-analyst')
+})
+
+test('the next step offers a written chapter page after the linked chapters are done', () => {
+  const analyst = CAREER_PATHS[0]
+  const context: PathContext = { ...writtenContext(), isWritten: (id) => ['combining-tables', 'conditional-logic'].includes(id) }
+  const linkedDone = withLessons(...analyst.stages[0].chapters.flatMap((c) => c.lessons.map((ref): [string, string] => [ref.moduleId, ref.lessonId])))
+  const next = nextStep(analyst, linkedDone, context)
+  assert.equal(next?.chapter.id, 'combining-tables')
+  assert.equal(next?.lesson, undefined, 'a written chapter is opened on its own page')
 })

@@ -3,14 +3,14 @@ import styles from './ChapterState.module.css'
 
 /** A short, visible label for a chapter's state. Planned chapters say so plainly. */
 export function ChapterState({ status }: { status: ChapterStatus }) {
-  const { state, lessons } = status
+  const { state, steps, kind } = status
   const text =
     state === 'planned'
       ? 'Planned'
       : state === 'complete'
         ? 'Complete'
         : state === 'in-progress'
-          ? `${lessons.done} of ${lessons.total} lessons done`
+          ? `${steps.done} of ${steps.total} ${kind === 'linked' ? 'lessons' : 'steps'} done`
           : 'Not started'
   return (
     <span className={styles.state} data-state={state}>

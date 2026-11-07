@@ -1,6 +1,6 @@
 import { Link } from 'react-router'
 import { pathUrl, type CareerPath } from '../../content/paths/catalog.ts'
-import { pathChapterCount } from '../../features/paths/pathSummary.ts'
+import { pathChapterCount, type PathContext } from '../../features/paths/pathSummary.ts'
 import type { ProgressData } from '../../features/progress/progressModel.ts'
 import { ProgressBar } from '../ui/ProgressBar.tsx'
 import styles from './PathCard.module.css'
@@ -12,11 +12,12 @@ interface PathCardProps {
   current: boolean
   /** True once the learner has chosen this path at least once. */
   started: boolean
+  context: PathContext
 }
 
 /** One career path on the SQL Path page: what it is, how much exists, and how far the learner is. */
-export function PathCard({ path, progress, current, started }: PathCardProps) {
-  const chapters = pathChapterCount(path, progress)
+export function PathCard({ path, progress, current, started, context }: PathCardProps) {
+  const chapters = pathChapterCount(path, progress, context)
   return (
     <article className={styles.card} data-current={current || undefined}>
       <div className={styles.head}>

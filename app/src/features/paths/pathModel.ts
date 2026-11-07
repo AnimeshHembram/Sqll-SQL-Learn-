@@ -26,6 +26,16 @@ export interface PathQuizProgress {
   lastTakenAt: string
 }
 
+/** A chapter exercise. Checked like a challenge, but saved in its path's own record. */
+export interface PathExerciseProgress {
+  /** ISO timestamp of the first correct submission, or null while unsolved. */
+  solvedAt: string | null
+  attempts: number
+  /** The most hints shown in any visit. */
+  hintsUsed: number
+  revealedSolution: boolean
+}
+
 export interface PathProblemProgress {
   /** ISO timestamp of the first correct answer, or null while unsolved. */
   solvedAt: string | null
@@ -49,6 +59,8 @@ export interface PathRecord {
   lastSelectedAt: string
   /** Keyed by chapter id. */
   chapters: Record<string, PathChapterProgress>
+  /** Keyed by exercise id. */
+  exercises: Record<string, PathExerciseProgress>
   /** Keyed by chapter id: each chapter has one quiz. */
   quizzes: Record<string, PathQuizProgress>
   /** Keyed by problem id. */
@@ -73,7 +85,7 @@ export function emptyPathProgress(): PathProgressData {
 
 export function emptyPathRecord(now: Date): PathRecord {
   const at = now.toISOString()
-  return { startedAt: at, lastSelectedAt: at, chapters: {}, quizzes: {}, problems: {}, projects: {}, badges: {} }
+  return { startedAt: at, lastSelectedAt: at, chapters: {}, exercises: {}, quizzes: {}, problems: {}, projects: {}, badges: {} }
 }
 
 // --- Updates -----------------------------------------------------------------------
@@ -99,6 +111,50 @@ export function updatePathRecord(
   const record = data.paths[pathId]
   if (!record) return data
   return { ...data, paths: { ...data.paths, [pathId]: change(record) } }
+}
+
+/** Creates the path's record if it has none, without changing the current path. */
+export function ensurePathRecord(data: PathProgressData, pathId: string, now: Date): PathProgressData {
+  if (!isId(pathId) || data.paths[pathId]) return data
+  return { ...data, paths: { ...data.paths, [pathId]: emptyPathRecord(now) } }
+}
+
+export function recordExerciseAttempt(record: PathRecord, exerciseId: string, correct: boolean, now: Date): PathRecord {
+  const current = record.exercises[exerciseId] ?? { solvedAt: null, attempts: 0, hintsUsed: 0, revealedSolution: false }
+  const next: PathExerciseProgress = {
+    ...current,
+    attempts: current.attempts + 1,
+    solvedAt: current.solvedAt ?? (correct ? now.toISOString() : null),
+  }
+  return { ...record, exercises: { ...record.exercises, [exerciseId]: next } }
+}
+
+export function recordExerciseHelp(record: PathRecord, exerciseId: string, help: { hintsUsed?: number; revealedSolution?: boolean }): PathRecord {
+  const current = record.exercises[exerciseId] ?? { solvedAt: null, attempts: 0, hintsUsed: 0, revealedSolution: false }
+  const next: PathExerciseProgress = {
+    ...current,
+    hintsUsed: Math.max(current.hintsUsed, help.hintsUsed ?? 0),
+    revealedSolution: current.revealedSolution || Boolean(help.revealedSolution),
+  }
+  return { ...record, exercises: { ...record.exercises, [exerciseId]: next } }
+}
+
+export function recordChapterQuiz(record: PathRecord, chapterId: string, score: number, total: number, now: Date): PathRecord {
+  const current = record.quizzes[chapterId]
+  const next: PathQuizProgress = {
+    bestScore: Math.max(current?.bestScore ?? 0, score),
+    lastScore: score,
+    total,
+    attempts: (current?.attempts ?? 0) + 1,
+    lastTakenAt: now.toISOString(),
+  }
+  return { ...record, quizzes: { ...record.quizzes, [chapterId]: next } }
+}
+
+/** Marks a chapter complete. The first completion date is kept. */
+export function recordChapterComplete(record: PathRecord, chapterId: string, now: Date): PathRecord {
+  if (record.chapters[chapterId]) return record
+  return { ...record, chapters: { ...record.chapters, [chapterId]: { completedAt: now.toISOString() } } }
 }
 
 // --- Checking stored data ------------------------------------------------------------
@@ -145,6 +201,15 @@ function readChapter(value: unknown): PathChapterProgress | null {
   return isPlain(value) && isTimestamp(value.completedAt) ? { completedAt: value.completedAt } : null
 }
 
+function readExercise(value: unknown): PathExerciseProgress | null {
+  if (!isPlain(value)) return null
+  const attempts = count(value.attempts)
+  const hintsUsed = count(value.hintsUsed)
+  const solvedAt = value.solvedAt === null ? null : isTimestamp(value.solvedAt) ? value.solvedAt : undefined
+  if (attempts === null || hintsUsed === null || solvedAt === undefined || typeof value.revealedSolution !== 'boolean') return null
+  return { solvedAt, attempts, hintsUsed, revealedSolution: value.revealedSolution }
+}
+
 function readQuiz(value: unknown): PathQuizProgress | null {
   if (!isPlain(value)) return null
   const bestScore = count(value.bestScore)
@@ -181,6 +246,8 @@ function readRecord(value: unknown): PathRecord | null {
     startedAt: value.startedAt,
     lastSelectedAt: isTimestamp(value.lastSelectedAt) ? value.lastSelectedAt : value.startedAt,
     chapters: readMap(value.chapters, readChapter),
+    // Missing in data saved before exercises existed: read as none, so nothing is lost.
+    exercises: readMap(value.exercises, readExercise),
     quizzes: readMap(value.quizzes, readQuiz),
     problems: readMap(value.problems, readProblem),
     projects: readMap(value.projects, readProject),

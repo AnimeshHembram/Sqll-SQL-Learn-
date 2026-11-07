@@ -139,3 +139,20 @@ export interface ContentQuiz {
   durationMinutes: number
   questions: QuizQuestion[]
 }
+
+// --- SQL Path chapters ----------------------------------------------------------------
+
+/** Guided exercises come with a starting query and step-by-step instructions; independent ones do not. */
+export type ExerciseKind = 'guided' | 'independent'
+
+/** An exercise inside a SQL Path chapter. Checked exactly like a challenge; its solution is in the solutions module. */
+export interface PathExercise extends ContentChallenge {
+  pathId: string
+  chapterId: string
+  kind: ExerciseKind
+}
+
+/** A chapter's end-of-chapter quiz. Its id is the chapter id. */
+export interface PathQuiz extends ContentQuiz {
+  pathId: string
+}

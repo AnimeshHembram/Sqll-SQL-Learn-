@@ -28,6 +28,8 @@ import { compareTables, type ActualTable, type ComparableValue } from '../src/fe
 
 const root = fileURLToPath(new URL('..', import.meta.url))
 const modulesDir = path.join(root, 'src/content/modules')
+/** SQL Path chapters use the lesson format, so their examples are checked the same way. */
+const pathChaptersDir = path.join(root, 'src/content/paths-content/chapters')
 const datasetsDir = path.join(root, 'src/content/datasets')
 
 const failures: string[] = []
@@ -86,9 +88,11 @@ function checkLesson(file: string, seed: string) {
   }
 }
 
-for (const entry of readdirSync(modulesDir, { withFileTypes: true })) {
-  if (!entry.isDirectory()) continue
-  const folder = path.join(modulesDir, entry.name)
+const moduleFolders = [modulesDir, pathChaptersDir].flatMap((dir) =>
+  existsSync(dir) ? readdirSync(dir, { withFileTypes: true }).filter((entry) => entry.isDirectory()).map((entry) => path.join(dir, entry.name)) : [],
+)
+
+for (const folder of moduleFolders) {
   const moduleFile = path.join(folder, MODULE_FILE)
   if (!existsSync(moduleFile)) continue
 

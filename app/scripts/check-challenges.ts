@@ -69,7 +69,9 @@ const failures: string[] = []
 const loaded = loadAllContent(content)
 failures.push(...loaded.errors)
 
-const { challenges, solutions, wrongAnswers, sourceFiles } = loaded
+const { solutions, wrongAnswers, sourceFiles } = loaded
+// SQL Path exercises are evaluated exactly like challenges, so they are checked the same way.
+const challenges = [...loaded.challenges, ...loaded.pathExercises]
 
 let queriesChecked = 0
 
@@ -132,11 +134,11 @@ for (const challenge of challenges) {
 
 const wrongCount = Object.values(wrongAnswers).reduce((total, list) => total + list.length, 0)
 console.log(
-  `Checked ${challenges.length} challenges by running ${queriesChecked} queries in SQLite ` +
+  `Checked ${loaded.challenges.length} challenges and ${loaded.pathExercises.length} SQL Path exercises by running ${queriesChecked} queries in SQLite ` +
     `(solutions, other accepted answers, ${wrongCount} wrong answers and starter queries).`,
 )
 if (failures.length > 0) {
   console.error(`\n${failures.length} problem${failures.length === 1 ? '' : 's'}:\n  - ${failures.join('\n  - ')}`)
   process.exit(1)
 }
-console.log(`All challenges check out. ${loaded.quizzes.length} quizzes are valid.`)
+console.log(`All challenges check out. ${loaded.quizzes.length} quizzes and ${loaded.pathQuizzes.length} chapter quizzes are valid.`)

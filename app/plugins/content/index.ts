@@ -2,6 +2,7 @@ import path from 'node:path'
 import type { Plugin, ViteDevServer } from 'vite'
 import { loadChallenges } from './loadChallenges.ts'
 import { loadContent } from './loadContent.ts'
+import { loadPathContent } from './loadPathContent.ts'
 import { loadQuizzes } from './loadQuizzes.ts'
 
 /**
@@ -21,8 +22,11 @@ import { loadQuizzes } from './loadQuizzes.ts'
 
 export const CONTENT_MODULE_ID = 'virtual:sql-learner-content'
 export const SOLUTIONS_MODULE_ID = 'virtual:sql-learner-challenge-solutions'
+/** SQL Path chapters, exercises (without solutions) and quizzes, imported only by the SQL Path pages. */
+export const PATH_CONTENT_MODULE_ID = 'virtual:sql-learner-path-content'
 const RESOLVED_ID = '\0' + CONTENT_MODULE_ID
 const RESOLVED_SOLUTIONS_ID = '\0' + SOLUTIONS_MODULE_ID
+const RESOLVED_PATH_ID = '\0' + PATH_CONTENT_MODULE_ID
 
 interface ContentPluginOptions {
   /** Absolute path to the folder that holds the module folders. */
@@ -33,23 +37,30 @@ interface ContentPluginOptions {
   challengesDir: string
   /** Absolute path to the folder that holds the quiz files. */
   quizzesDir: string
+  /** Absolute path to the SQL Path content folder. Defaults to "paths-content" next to `dir`. */
+  pathsDir?: string
 }
 
 /** Loads and validates all content. Takes a few milliseconds, so there is no cache to go stale. */
-export function loadAllContent({ dir, datasetsDir, challengesDir, quizzesDir }: ContentPluginOptions) {
+export function loadAllContent({ dir, datasetsDir, challengesDir, quizzesDir, pathsDir }: ContentPluginOptions) {
   const content = loadContent(dir, datasetsDir)
   const challenges = loadChallenges(challengesDir, datasetsDir, new Set(content.modules.map((module) => module.id)))
   const quizzes = loadQuizzes(quizzesDir)
+  const paths = loadPathContent(pathsDir ?? path.join(path.dirname(dir), 'paths-content'), datasetsDir, new Set(Object.keys(challenges.solutions)))
   return {
     modules: content.modules,
     challenges: challenges.challenges,
-    solutions: challenges.solutions,
+    /** Challenge and SQL Path exercise solutions: the database worker evaluates both the same way. */
+    solutions: { ...challenges.solutions, ...paths.solutions },
     /** Author-only test data for scripts/check-challenges.ts; never bundled. */
-    wrongAnswers: challenges.wrongAnswers,
-    sourceFiles: challenges.sourceFiles,
+    wrongAnswers: { ...challenges.wrongAnswers, ...paths.wrongAnswers },
+    sourceFiles: { ...challenges.sourceFiles, ...paths.sourceFiles },
     quizzes: quizzes.quizzes,
-    errors: [...content.errors, ...challenges.errors, ...quizzes.errors],
-    files: [...new Set([...content.files, ...challenges.files, ...quizzes.files])],
+    pathModules: paths.modules,
+    pathExercises: paths.exercises,
+    pathQuizzes: paths.quizzes,
+    errors: [...content.errors, ...challenges.errors, ...quizzes.errors, ...paths.errors],
+    files: [...new Set([...content.files, ...challenges.files, ...quizzes.files, ...paths.files])],
   }
 }
 
@@ -64,7 +75,8 @@ export function contentPlugin(options: ContentPluginOptions): Plugin {
     const relative = path.relative(folder, file)
     return relative !== '' && !relative.startsWith('..') && !path.isAbsolute(relative)
   }
-  const isContentFile = (file: string) => [dir, datasetsDir, challengesDir, quizzesDir].some((folder) => isInside(folder, file))
+  const pathsDir = options.pathsDir ?? path.join(path.dirname(dir), 'paths-content')
+  const isContentFile = (file: string) => [dir, datasetsDir, challengesDir, quizzesDir, pathsDir].some((folder) => isInside(folder, file))
 
   // True while the content has errors. Vite does not retry a module whose last
   // load failed, so the next change to a content file forces a reload.
@@ -76,7 +88,7 @@ export function contentPlugin(options: ContentPluginOptions): Plugin {
   const reloadContent = (server: ViteDevServer) => (file: string) => {
     if (!isContentFile(file)) return
     const graph = server.environments.client.moduleGraph
-    for (const id of [RESOLVED_ID, RESOLVED_SOLUTIONS_ID]) {
+    for (const id of [RESOLVED_ID, RESOLVED_SOLUTIONS_ID, RESOLVED_PATH_ID]) {
       const module = graph.getModuleById(id)
       if (module) graph.invalidateModule(module)
     }
@@ -89,16 +101,24 @@ export function contentPlugin(options: ContentPluginOptions): Plugin {
     resolveId(id) {
       if (id === CONTENT_MODULE_ID) return RESOLVED_ID
       if (id === SOLUTIONS_MODULE_ID) return RESOLVED_SOLUTIONS_ID
+      if (id === PATH_CONTENT_MODULE_ID) return RESOLVED_PATH_ID
       return undefined
     },
 
     load(id) {
-      if (id !== RESOLVED_ID && id !== RESOLVED_SOLUTIONS_ID) return undefined
-      const { modules, challenges, solutions, quizzes, errors, files } = loadAllContent(options)
+      if (id !== RESOLVED_ID && id !== RESOLVED_SOLUTIONS_ID && id !== RESOLVED_PATH_ID) return undefined
+      const { modules, challenges, solutions, quizzes, pathModules, pathExercises, pathQuizzes, errors, files } = loadAllContent(options)
       for (const file of files) this.addWatchFile(file)
       lastLoadFailed = errors.length > 0
       if (lastLoadFailed) this.error(formatErrors(errors))
       if (id === RESOLVED_SOLUTIONS_ID) return `export const solutions = ${JSON.stringify(solutions)};`
+      if (id === RESOLVED_PATH_ID) {
+        return [
+          `export const pathModules = ${JSON.stringify(pathModules)};`,
+          `export const pathExercises = ${JSON.stringify(pathExercises)};`,
+          `export const pathQuizzes = ${JSON.stringify(pathQuizzes)};`,
+        ].join('\n')
+      }
       return [
         `export const modules = ${JSON.stringify(modules)};`,
         `export const challenges = ${JSON.stringify(challenges)};`,
@@ -107,7 +127,7 @@ export function contentPlugin(options: ContentPluginOptions): Plugin {
     },
 
     configureServer(server) {
-      server.watcher.add([dir, datasetsDir, challengesDir, quizzesDir])
+      server.watcher.add([dir, datasetsDir, challengesDir, quizzesDir, pathsDir])
       const reload = reloadContent(server)
       server.watcher.on('add', reload)
       server.watcher.on('unlink', reload)

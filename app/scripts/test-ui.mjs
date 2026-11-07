@@ -545,11 +545,11 @@ try {
     await page.evaluate((progress) => localStorage.setItem('sql-learner:progress:v1', JSON.stringify(progress)), lessonsDone(...FUNDAMENTALS, 'summarising-data/counting-rows'))
     await page.reload()
     const main = page.locator('main')
-    await main.getByText('1 of 2 ready chapters complete', { exact: true }).first().waitFor()
+    await main.getByText('1 of 7 ready chapters complete', { exact: true }).first().waitFor()
     const chapter = (title) => main.locator('li', { has: page.getByRole('heading', { level: 3, name: title, exact: true }) })
     assert.match(await chapter('Querying a table').innerText(), /Complete/)
     assert.match(await chapter('Summarising data').innerText(), /1 of 4 lessons done/)
-    const planned = chapter('Combining tables with joins')
+    const planned = chapter('Revenue and order metrics')
     assert.match(await planned.innerText(), /Planned/)
     assert.match(await planned.innerText(), /does not count towards your progress/)
     assert.equal(await planned.getByRole('link').count(), 0, 'a planned chapter has no link')
@@ -588,7 +588,7 @@ try {
     assert.match(await page.locator('main').innerText(), /Your current path: Cybersecurity Analyst/)
 
     await page.goto(`${base}/paths/data-analyst`)
-    await page.getByText('You have followed this path before. Its progress is kept.').waitFor()
+    await page.getByText('You have progress in this path. It is kept.').waitFor()
     await page.getByRole('button', { name: 'Switch to Data Analyst' }).click()
     await page.getByRole('status').filter({ hasText: 'Your Cybersecurity Analyst progress is kept.' }).waitFor()
     const third = await storedPaths(page)
@@ -644,6 +644,83 @@ try {
         assert.ok(worst.value >= 4.5, `${label} ${url}: "${worst.text}" contrast ${worst.value.toFixed(2)}`)
       }
     }
+  })
+
+  await check('sql path chapter: exercises are really checked and saved only in the path record; completion needs every step', async (page) => {
+    await page.goto(`${base}/paths/data-analyst`)
+    await page.getByRole('link', { name: 'Combining tables with joins', exact: true }).click()
+    await page.getByRole('heading', { level: 1, name: 'Combining tables with joins' }).waitFor()
+    // A runnable example in the chapter text.
+    await page.getByRole('button', { name: /^Run/ }).first().click()
+    await page.waitForFunction(() => document.body.innerText.includes('Matches the expected output'), null, { timeout: 15000 })
+
+    const exercise = page.locator('[data-exercise="da-customers-without-orders"]')
+    await exercise.getByRole('button', { name: 'Submit answer' }).click()
+    await exercise.locator('[data-feedback="extra-rows"]').waitFor()
+    await exercise.locator('.cm-content').click()
+    await page.keyboard.press('ControlOrMeta+A')
+    await page.keyboard.press('Delete')
+    await page.keyboard.insertText('SELECT c.name FROM customers AS c LEFT JOIN orders AS o ON o.customer_id = c.id WHERE o.id IS NULL')
+    await exercise.getByRole('button', { name: 'Submit answer' }).click()
+    await exercise.locator('[data-feedback="correct"]').waitFor()
+    const stored = await storedPaths(page)
+    assert.equal(stored.paths['data-analyst'].exercises['da-customers-without-orders'].attempts, 2)
+    assert.ok(stored.paths['data-analyst'].exercises['da-customers-without-orders'].solvedAt)
+    assert.equal(stored.activePathId, null, 'working in a chapter does not change the current path')
+    const learn = await page.evaluate(() => JSON.parse(localStorage.getItem('sql-learner:progress:v1') ?? 'null'))
+    assert.equal(learn?.challenges?.['da-customers-without-orders'], undefined, 'exercises are not saved as Challenges progress')
+
+    const complete = page.getByRole('region', { name: 'Complete this chapter' })
+    assert.match(await complete.innerText(), /1 of 4 solved/)
+    assert.equal(await complete.getByRole('button', { name: 'Complete chapter' }).count(), 0, 'no completion before every step is done')
+
+    // Solve the other three exercises through the same check, then pass the quiz.
+    const answers = {
+      'da-orders-with-cities': 'SELECT o.id AS order_id, c.city AS city FROM orders AS o JOIN customers AS c ON o.customer_id = c.id',
+      'da-books-and-countries': 'SELECT b.title, a.country FROM books AS b JOIN authors AS a ON b.author = a.name',
+      'da-revenue-by-genre':
+        "SELECT b.genre, ROUND(SUM(oi.quantity * oi.unit_price), 2) AS revenue FROM order_items AS oi JOIN books AS b ON oi.book_id = b.id JOIN orders AS o ON oi.order_id = o.id WHERE o.status <> 'cancelled' GROUP BY b.genre",
+    }
+    for (const [id, sql] of Object.entries(answers)) {
+      const card = page.locator(`[data-exercise="${id}"]`)
+      await card.locator('.cm-content').click()
+      await page.keyboard.press('ControlOrMeta+A')
+      await page.keyboard.press('Delete')
+      await page.keyboard.insertText(sql)
+      await card.getByRole('button', { name: 'Submit answer' }).click()
+      await card.locator('[data-feedback="correct"]').waitFor()
+    }
+    const correctOptions = [
+      'So the name is stored once and every order refers to it by customer_id',
+      'LEFT JOIN',
+      '9',
+      'SELECT b.title FROM books AS b LEFT JOIN order_items AS oi ON oi.book_id = b.id WHERE oi.book_id IS NULL;',
+      'Both tables have an id column, so id is ambiguous',
+    ]
+    const questions = page.locator('section[aria-labelledby="chapter-quiz"] fieldset')
+    for (let index = 0; index < correctOptions.length; index++) {
+      const question = questions.nth(index)
+      await question.getByLabel(correctOptions[index], { exact: true }).check()
+      await question.getByRole('button', { name: /Check answer/ }).click()
+    }
+    await page.getByText('You answered 5 of 5 correctly. Quiz passed.').waitFor()
+    await complete.getByRole('button', { name: 'Complete chapter' }).click()
+    await page.getByText('Chapter complete. It now counts towards your path progress.').waitFor()
+    const after = await storedPaths(page)
+    assert.ok(after.paths['data-analyst'].chapters['combining-tables'].completedAt)
+    assert.equal(after.paths['data-analyst'].quizzes['combining-tables'].bestScore, 5)
+
+    // Previous and next chapters.
+    const pager = page.getByRole('navigation', { name: 'Chapter navigation' })
+    assert.match(await pager.innerText(), /Summarising data/)
+    await pager.getByRole('link', { name: /Conditional logic with CASE/ }).click()
+    await page.getByRole('heading', { level: 1, name: 'Conditional logic with CASE' }).waitFor()
+
+    // The roadmap and the path's progress count the completed chapter.
+    await page.goto(`${base}/paths/data-analyst`)
+    const chapter = page.locator('main li', { has: page.getByRole('heading', { level: 3, name: 'Combining tables with joins' }) })
+    await chapter.getByText('Complete', { exact: true }).waitFor()
+    assert.match(await page.locator('main').innerText(), /1 of 7 ready chapters complete/)
   })
 
   assert.deepEqual(errors, [], 'no console errors')

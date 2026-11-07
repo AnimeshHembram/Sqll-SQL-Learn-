@@ -10,3 +10,10 @@ declare module 'virtual:sql-learner-content' {
 declare module 'virtual:sql-learner-challenge-solutions' {
   export const solutions: unknown
 }
+
+// SQL Path chapters, exercises (without solutions) and quizzes, loaded only by the SQL Path pages.
+declare module 'virtual:sql-learner-path-content' {
+  export const pathModules: unknown
+  export const pathExercises: unknown
+  export const pathQuizzes: unknown
+}

@@ -2,7 +2,8 @@ import { useId } from 'react'
 import { Link } from 'react-router'
 import { findLesson, lessonPath } from '../../content/index.ts'
 import type { CareerPath, PathChapter } from '../../content/paths/catalog.ts'
-import { chapterStatus, stageChapterCount } from '../../features/paths/pathSummary.ts'
+import { chapterExercises, chapterUrl } from '../../content/paths/chapters.ts'
+import { chapterStatus, stageChapterCount, type PathContext } from '../../features/paths/pathSummary.ts'
 import type { ProgressData } from '../../features/progress/progressModel.ts'
 import { isLessonComplete } from '../../features/progress/progressSummary.ts'
 import { ChapterState } from './ChapterState.tsx'
@@ -11,6 +12,7 @@ import styles from './Roadmap.module.css'
 interface RoadmapProps {
   path: CareerPath
   progress: ProgressData
+  context: PathContext
 }
 
 /**
@@ -18,7 +20,7 @@ interface RoadmapProps {
  * chapter of every stage. Jumping uses buttons that scroll and move focus,
  * not #fragment links: the offline build uses the # part of the address for routing.
  */
-export function Roadmap({ path, progress }: RoadmapProps) {
+export function Roadmap({ path, progress, context }: RoadmapProps) {
   const baseId = useId()
   const stageId = (id: string) => `${baseId}-stage-${id}`
 
@@ -34,7 +36,7 @@ export function Roadmap({ path, progress }: RoadmapProps) {
       <nav aria-label="Stages" className={styles.stageNav}>
         <ol className={styles.stageList}>
           {path.stages.map((stage, index) => {
-            const count = stageChapterCount(stage, progress)
+            const count = stageChapterCount(stage, progress, context)
             return (
               <li key={stage.id}>
                 <button type="button" className={styles.stageButton} onClick={() => jumpTo(stage.id)}>
@@ -66,7 +68,7 @@ export function Roadmap({ path, progress }: RoadmapProps) {
             <p className={styles.stageSummary}>{stage.summary}</p>
             <ol className={styles.chapters}>
               {stage.chapters.map((chapter) => (
-                <ChapterItem key={chapter.id} chapter={chapter} progress={progress} />
+                <ChapterItem key={chapter.id} pathId={path.id} chapter={chapter} progress={progress} context={context} />
               ))}
             </ol>
           </section>
@@ -76,17 +78,29 @@ export function Roadmap({ path, progress }: RoadmapProps) {
   )
 }
 
-function ChapterItem({ chapter, progress }: { chapter: PathChapter; progress: ProgressData }) {
-  const status = chapterStatus(chapter, progress)
+interface ChapterItemProps {
+  pathId: string
+  chapter: PathChapter
+  progress: ProgressData
+  context: PathContext
+}
+
+function ChapterItem({ pathId, chapter, progress, context }: ChapterItemProps) {
+  const status = chapterStatus(chapter, progress, context)
   const planned = status.state === 'planned'
+  const written = status.kind === 'written'
   return (
     <li className={styles.chapter} data-planned={planned || undefined}>
       <div className={styles.chapterHead}>
-        <h3 className={styles.chapterTitle}>{chapter.title}</h3>
+        <h3 className={styles.chapterTitle}>{written ? <Link to={chapterUrl(pathId, chapter.id)}>{chapter.title}</Link> : chapter.title}</h3>
         <ChapterState status={status} />
       </div>
       <p className={styles.chapterSummary}>{chapter.summary}</p>
-      {planned ? (
+      {written ? (
+        <p className={styles.writtenNote}>
+          Chapter with runnable examples, {chapterExercises(pathId, chapter.id).length} exercises and a quiz.
+        </p>
+      ) : planned ? (
         <p className={styles.plannedNote}>Not written yet. It does not count towards your progress.</p>
       ) : (
         <ul className={styles.lessons} aria-label={`Lessons in ${chapter.title}`}>

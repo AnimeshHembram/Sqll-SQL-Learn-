@@ -4,6 +4,7 @@ import { lazy, Suspense } from 'react'
 // loaded only when they are opened. This keeps the first page load the same size.
 const PathsPage = lazy(async () => ({ default: (await import('./PathsPage.tsx')).PathsPage }))
 const PathPage = lazy(async () => ({ default: (await import('./PathPage.tsx')).PathPage }))
+const ChapterPage = lazy(async () => ({ default: (await import('./ChapterPage.tsx')).ChapterPage }))
 
 const loading = <p role="status">Loading SQL Path…</p>
 
@@ -19,6 +20,14 @@ export function PathRoute() {
   return (
     <Suspense fallback={loading}>
       <PathPage />
+    </Suspense>
+  )
+}
+
+export function ChapterRoute() {
+  return (
+    <Suspense fallback={loading}>
+      <ChapterPage />
     </Suspense>
   )
 }
