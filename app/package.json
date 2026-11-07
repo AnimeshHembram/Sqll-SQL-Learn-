@@ -15,14 +15,19 @@
     "preview": "vite preview",
     "check:examples": "node --disable-warning=ExperimentalWarning scripts/check-examples.ts",
     "check:challenges": "node --disable-warning=ExperimentalWarning scripts/check-challenges.ts",
+    "test:progress-fixtures": "node --disable-warning=ExperimentalWarning --test scripts/test-progress-fixtures.ts",
+    "test:regression": "node --disable-warning=ExperimentalWarning scripts/test-regression.mjs",
+    "measure:build": "node scripts/measure-build.mjs",
+    "postcheck": "npm run test:progress-fixtures && npm run measure:build",
     "test:evaluation": "node --disable-warning=ExperimentalWarning --test scripts/test-evaluation.ts",
     "test:progress": "node --disable-warning=ExperimentalWarning --test scripts/test-progress.ts",
     "test:sql": "node --disable-warning=ExperimentalWarning --test scripts/test-sql-execution.ts",
     "test:interactions": "node --disable-warning=ExperimentalWarning --test scripts/test-interactions.ts",
     "test:feedback": "node --disable-warning=ExperimentalWarning --test scripts/test-feedback.ts",
+    "test:paths": "node --disable-warning=ExperimentalWarning --test scripts/test-paths.ts",
     "test:ui": "node scripts/test-ui.mjs",
     "test:offline": "node scripts/test-offline.mjs",
-    "check": "npm run lint && npm run check:examples && npm run check:challenges && npm run test:evaluation && npm run test:progress && npm run test:sql && npm run test:interactions && npm run test:feedback && npm run build"
+    "check": "npm run lint && npm run check:examples && npm run check:challenges && npm run test:evaluation && npm run test:progress && npm run test:sql && npm run test:interactions && npm run test:feedback && npm run test:paths && npm run build"
   },
   "dependencies": {
     "@codemirror/autocomplete": "^6.20.3",

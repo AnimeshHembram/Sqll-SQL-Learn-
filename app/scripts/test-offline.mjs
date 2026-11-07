@@ -127,6 +127,16 @@ try {
     await page.waitForFunction(() => /Correct\.|Not quite/.test(document.body.innerText))
   })
 
+  await check('sql path: a path opens, can be chosen, and stage navigation keeps the # address', async () => {
+    await page.goto(`${appUrl}#/paths/data-analyst`)
+    await page.getByRole('button', { name: 'Make this my current path' }).click()
+    await page.waitForFunction(() => document.body.innerText.includes('Data Analyst is now your current path.'))
+    await page.getByRole('navigation', { name: 'Stages' }).getByRole('button', { name: /Stage 3/ }).click()
+    assert.equal(page.url(), `${appUrl}#/paths/data-analyst`, 'jumping to a stage does not change the route')
+    await page.goto(`${appUrl}#/paths`)
+    await page.waitForFunction(() => document.body.innerText.includes('Your current path: Data Analyst'))
+  })
+
   await check('progress is saved: the lesson stays complete after reopening app/index.html', async () => {
     await page.goto(`${entryUrl}#/learn/sql-fundamentals/introduction-to-select`)
     await page.waitForURL(`${appUrl}#/learn/sql-fundamentals/introduction-to-select`)

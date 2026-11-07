@@ -509,6 +509,143 @@ try {
     assert.match(await page.getByRole('status').filter({ hasText: 'GitHub opened' }).innerText(), /Nothing is sent until you submit/)
   })
 
+  // --- SQL Path ---------------------------------------------------------------------
+
+  /** Learn SQL progress with the given "module/lesson" keys complete. */
+  const lessonsDone = (...keys) => ({
+    version: 1,
+    lessons: Object.fromEntries(keys.map((key) => [key, { completedAt: '2026-11-01T10:00:00.000Z' }])),
+    challenges: {},
+    quizzes: {},
+    activity: {},
+    recent: [],
+  })
+  const FUNDAMENTALS = ['what-is-sql', 'introduction-to-select', 'filtering-with-where', 'sorting-with-order-by', 'limiting-results'].map(
+    (id) => `sql-fundamentals/${id}`,
+  )
+  const storedPaths = (page) => page.evaluate(() => JSON.parse(localStorage.getItem('sql-learner:paths:v1') ?? 'null'))
+
+  await check('sql path: the sidebar link opens eight career paths, with no path chosen yet', async (page) => {
+    await page.goto(`${base}/`)
+    await page.getByRole('navigation', { name: 'Main' }).getByRole('link', { name: 'SQL Path' }).click()
+    await page.waitForURL(/\/paths$/)
+    await page.getByRole('heading', { level: 1, name: 'SQL Path' }).waitFor()
+    const cards = page.locator('main article')
+    assert.equal(await cards.count(), 8)
+    for (const title of ['Data Analyst', 'Data Engineer', 'BI Analyst', 'Database Administrator', 'Database Developer', 'Backend Developer', 'Data Scientist', 'Cybersecurity Analyst']) {
+      assert.equal(await page.getByRole('link', { name: title, exact: true }).count(), 1, `${title} card`)
+    }
+    assert.equal(await page.getByText('Current path', { exact: true }).count(), 0)
+    await page.getByRole('link', { name: 'Data Analyst', exact: true }).click()
+    await page.waitForURL(/\/paths\/data-analyst$/)
+  })
+
+  await check('sql path: planned chapters are labelled and never count; ready chapters follow Learn SQL lessons', async (page) => {
+    await page.goto(`${base}/paths/data-analyst`)
+    await page.evaluate((progress) => localStorage.setItem('sql-learner:progress:v1', JSON.stringify(progress)), lessonsDone(...FUNDAMENTALS, 'summarising-data/counting-rows'))
+    await page.reload()
+    const main = page.locator('main')
+    await main.getByText('1 of 2 ready chapters complete', { exact: true }).first().waitFor()
+    const chapter = (title) => main.locator('li', { has: page.getByRole('heading', { level: 3, name: title, exact: true }) })
+    assert.match(await chapter('Querying a table').innerText(), /Complete/)
+    assert.match(await chapter('Summarising data').innerText(), /1 of 4 lessons done/)
+    const planned = chapter('Combining tables with joins')
+    assert.match(await planned.innerText(), /Planned/)
+    assert.match(await planned.innerText(), /does not count towards your progress/)
+    assert.equal(await planned.getByRole('link').count(), 0, 'a planned chapter has no link')
+    const plannedLabels = await main.locator('[data-state="planned"]').count()
+    assert.ok(plannedLabels >= 10, `planned chapters and projects are labelled (${plannedLabels})`)
+    // The link of a ready chapter opens the real lesson.
+    await chapter('Summarising data').getByRole('link', { name: 'Totals and averages with SUM, AVG, MIN and MAX' }).click()
+    await page.waitForURL(/\/learn\/summarising-data\/sum-avg-min-max$/)
+  })
+
+  await check('sql path: choosing a path is remembered, and switching keeps each path\'s own record', async (page) => {
+    await page.goto(`${base}/paths/data-analyst`)
+    await page.getByRole('button', { name: 'Make this my current path' }).click()
+    const status = page.getByRole('status').filter({ hasText: 'Data Analyst is now your current path.' })
+    await status.waitFor()
+    await page.waitForFunction(() => document.activeElement?.getAttribute('role') === 'status')
+    await page.reload()
+    await page.getByText('This is your current path.').waitFor()
+    assert.equal(await page.getByRole('button', { name: 'Make this my current path' }).count(), 0)
+    const first = await storedPaths(page)
+    assert.equal(first.activePathId, 'data-analyst')
+
+    await page.goto(`${base}/paths/cybersecurity-analyst`)
+    await page.getByRole('button', { name: 'Switch to Cybersecurity Analyst' }).click()
+    await page.getByRole('status').filter({ hasText: 'Your Data Analyst progress is kept.' }).waitFor()
+    const second = await storedPaths(page)
+    assert.equal(second.activePathId, 'cybersecurity-analyst')
+    assert.deepEqual(second.paths['data-analyst'], first.paths['data-analyst'], 'switching leaves the Data Analyst record untouched')
+    assert.ok(second.paths['cybersecurity-analyst'])
+
+    await page.goto(`${base}/paths`)
+    await page.getByRole('heading', { level: 2, name: 'All career paths' }).waitFor()
+    const current = page.locator('main article[data-current]')
+    assert.equal(await current.count(), 1)
+    assert.match(await current.innerText(), /Cybersecurity Analyst/)
+    assert.match(await page.locator('main').innerText(), /Your current path: Cybersecurity Analyst/)
+
+    await page.goto(`${base}/paths/data-analyst`)
+    await page.getByText('You have followed this path before. Its progress is kept.').waitFor()
+    await page.getByRole('button', { name: 'Switch to Data Analyst' }).click()
+    await page.getByRole('status').filter({ hasText: 'Your Cybersecurity Analyst progress is kept.' }).waitFor()
+    const third = await storedPaths(page)
+    assert.equal(third.paths['data-analyst'].startedAt, first.paths['data-analyst'].startedAt, 'the original start date is kept')
+    assert.deepEqual(third.paths['cybersecurity-analyst'], second.paths['cybersecurity-analyst'])
+  })
+
+  await check('sql path: stage navigation moves to the stage; unknown paths show Not found', async (page) => {
+    await page.goto(`${base}/paths/data-engineer`)
+    await page.getByRole('navigation', { name: 'Stages' }).getByRole('button', { name: /Stage 4: Data modelling/ }).click()
+    assert.match(await focused(page), /Data modelling/)
+    await page.goto(`${base}/paths/not-a-path`)
+    await page.locator('main h1').filter({ hasText: /not found/i }).waitFor()
+  })
+
+  await check('sql path: labels and text keep 4.5:1 contrast in every theme', async (page) => {
+    for (const label of ['Black', 'White', 'Purple', 'Original']) {
+      await page.goto(`${base}/settings`)
+      await page.getByRole('radio', { name: label }).check()
+      for (const url of ['/paths', '/paths/data-analyst']) {
+        await page.goto(`${base}${url}`)
+        // The pages load on demand: measure the page itself, not the loading message.
+        await page.locator('main h2').first().waitFor()
+        await page.evaluate(() => Promise.all(document.getAnimations().map((animation) => animation.finished)))
+        const worst = await page.evaluate(() => {
+          const luminance = (color) => {
+            const [r, g, b] = color.match(/[\d.]+/g).slice(0, 3).map((value) => {
+              const v = Number(value) / 255
+              return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4
+            })
+            return 0.2126 * r + 0.7152 * g + 0.0722 * b
+          }
+          const background = (element) => {
+            for (let node = element; node; node = node.parentElement) {
+              const color = getComputedStyle(node).backgroundColor
+              if (!/rgba\(.*, 0\)$/.test(color) && color !== 'transparent') return color
+            }
+            return getComputedStyle(document.body).backgroundColor
+          }
+          const ratio = (a, b) => {
+            const [l1, l2] = [luminance(a), luminance(b)].sort((x, y) => y - x)
+            return (l1 + 0.05) / (l2 + 0.05)
+          }
+          let lowest = { value: Infinity, text: '' }
+          const selector = 'main [data-state], main h1, main h2, main h3, main p, main dt, main dd, main a, main button, main li'
+          for (const element of document.querySelectorAll(selector)) {
+            if (!element.textContent.trim() || !element.checkVisibility()) continue
+            const value = ratio(getComputedStyle(element).color, background(element))
+            if (value < lowest.value) lowest = { value, text: element.textContent.trim().slice(0, 40) }
+          }
+          return lowest
+        })
+        assert.ok(worst.value >= 4.5, `${label} ${url}: "${worst.text}" contrast ${worst.value.toFixed(2)}`)
+      }
+    }
+  })
+
   assert.deepEqual(errors, [], 'no console errors')
   console.log(`\n${passed} interaction checks passed.`)
 } finally {

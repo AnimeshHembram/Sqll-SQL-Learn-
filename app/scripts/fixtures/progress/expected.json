@@ -1,0 +1,1494 @@
+{
+  "now": "2026-11-06 12:00 local time",
+  "content": {
+    "lessons": [
+      {
+        "module": "sql-fundamentals",
+        "lessons": [
+          "what-is-sql",
+          "introduction-to-select",
+          "filtering-with-where",
+          "sorting-with-order-by",
+          "limiting-results"
+        ]
+      },
+      {
+        "module": "summarising-data",
+        "lessons": [
+          "counting-rows",
+          "sum-avg-min-max",
+          "grouping-with-group-by",
+          "filtering-groups-with-having"
+        ]
+      }
+    ],
+    "challenges": [
+      "beginner:choose-columns",
+      "beginner:recent-affordable-books",
+      "beginner:most-expensive-first",
+      "beginner:three-newest",
+      "beginner:distinct-genres",
+      "intermediate:count-books-by-genre",
+      "intermediate:price-summary",
+      "intermediate:pricey-genres",
+      "intermediate:books-and-countries",
+      "intermediate:authors-and-book-counts",
+      "advanced:above-average-price",
+      "advanced:price-bands",
+      "advanced:customer-spending",
+      "advanced:bestselling-books",
+      "advanced:rank-within-genre"
+    ],
+    "quizzes": [
+      "select-fundamentals:5",
+      "aggregates-and-joins:5",
+      "advanced-queries:5"
+    ]
+  },
+  "fixtures": {
+    "typical": {
+      "parsed": {
+        "version": 1,
+        "lessons": {
+          "sql-fundamentals/what-is-sql": {
+            "completedAt": "2026-10-01T09:15:00.000Z"
+          },
+          "sql-fundamentals/introduction-to-select": {
+            "completedAt": "2026-10-02T09:40:00.000Z"
+          },
+          "sql-fundamentals/filtering-with-where": {
+            "completedAt": "2026-10-27T18:05:00.000Z"
+          },
+          "sql-fundamentals/sorting-with-order-by": {
+            "completedAt": "2026-11-04T20:30:00.000Z"
+          }
+        },
+        "challenges": {
+          "choose-columns": {
+            "solvedAt": "2026-10-02T10:00:00.000Z",
+            "attempts": 1,
+            "hintsUsed": 0,
+            "revealedSolution": false,
+            "revealedBeforeSolving": false
+          },
+          "recent-affordable-books": {
+            "solvedAt": "2026-10-28T19:12:00.000Z",
+            "attempts": 3,
+            "hintsUsed": 1,
+            "revealedSolution": false,
+            "revealedBeforeSolving": false
+          },
+          "most-expensive-first": {
+            "solvedAt": "2026-11-01T11:00:00.000Z",
+            "attempts": 2,
+            "hintsUsed": 2,
+            "revealedSolution": true,
+            "revealedBeforeSolving": false
+          },
+          "three-newest": {
+            "solvedAt": null,
+            "attempts": 4,
+            "hintsUsed": 2,
+            "revealedSolution": true,
+            "revealedBeforeSolving": true
+          },
+          "count-books-by-genre": {
+            "solvedAt": "2026-11-05T21:45:00.000Z",
+            "attempts": 2,
+            "hintsUsed": 0,
+            "revealedSolution": false,
+            "revealedBeforeSolving": false
+          }
+        },
+        "quizzes": {
+          "select-fundamentals": {
+            "bestScore": 4,
+            "lastScore": 3,
+            "total": 5,
+            "attempts": 2,
+            "lastTakenAt": "2026-11-02T17:00:00.000Z"
+          },
+          "aggregates-and-joins": {
+            "bestScore": 5,
+            "lastScore": 5,
+            "total": 5,
+            "attempts": 1,
+            "lastTakenAt": "2026-11-06T08:30:00.000Z"
+          }
+        },
+        "activity": {
+          "2026-10-26": 1,
+          "2026-10-27": 4,
+          "2026-10-28": 2,
+          "2026-10-29": 5,
+          "2026-10-30": 3,
+          "2026-10-31": 1,
+          "2026-11-01": 4,
+          "2026-11-02": 2,
+          "2026-11-03": 5,
+          "2026-11-04": 3,
+          "2026-11-05": 1,
+          "2026-11-06": 4,
+          "2026-10-01": 2,
+          "2026-10-02": 2,
+          "2026-10-03": 2,
+          "2026-10-04": 2,
+          "2026-10-05": 2,
+          "2026-09-15": 1
+        },
+        "recent": [
+          {
+            "kind": "quiz",
+            "id": "aggregates-and-joins",
+            "at": "2026-11-06T08:30:00.000Z",
+            "detail": "5/5"
+          },
+          {
+            "kind": "challenge",
+            "id": "count-books-by-genre",
+            "at": "2026-11-05T21:45:00.000Z"
+          },
+          {
+            "kind": "lesson",
+            "id": "sql-fundamentals/sorting-with-order-by",
+            "at": "2026-11-04T20:30:00.000Z"
+          },
+          {
+            "kind": "quiz",
+            "id": "select-fundamentals",
+            "at": "2026-11-02T17:00:00.000Z",
+            "detail": "3/5"
+          },
+          {
+            "kind": "challenge",
+            "id": "most-expensive-first",
+            "at": "2026-11-01T11:00:00.000Z"
+          },
+          {
+            "kind": "challenge",
+            "id": "recent-affordable-books",
+            "at": "2026-10-28T19:12:00.000Z"
+          },
+          {
+            "kind": "lesson",
+            "id": "sql-fundamentals/filtering-with-where",
+            "at": "2026-10-27T18:05:00.000Z"
+          },
+          {
+            "kind": "challenge",
+            "id": "choose-columns",
+            "at": "2026-10-02T10:00:00.000Z"
+          }
+        ]
+      },
+      "stableAfterSaveAndLoad": true,
+      "summary": {
+        "lessons": {
+          "done": 4,
+          "total": 9
+        },
+        "lessonsPercent": 44,
+        "modules": {
+          "sql-fundamentals": {
+            "done": 4,
+            "total": 5
+          },
+          "summarising-data": {
+            "done": 0,
+            "total": 4
+          }
+        },
+        "nextLesson": "sql-fundamentals/limiting-results",
+        "challenges": {
+          "done": 4,
+          "total": 15,
+          "byLevel": {
+            "beginner": {
+              "done": 3,
+              "total": 5
+            },
+            "intermediate": {
+              "done": 1,
+              "total": 5
+            },
+            "advanced": {
+              "done": 0,
+              "total": 5
+            }
+          }
+        },
+        "nextChallenge": "three-newest",
+        "quizzes": {
+          "done": 2,
+          "total": 3,
+          "averageBest": 90
+        },
+        "streak": {
+          "current": 12,
+          "longest": 12,
+          "activeToday": true,
+          "activeDays": 18
+        },
+        "last30Days": [
+          {
+            "day": "2026-10-08",
+            "count": 0
+          },
+          {
+            "day": "2026-10-09",
+            "count": 0
+          },
+          {
+            "day": "2026-10-10",
+            "count": 0
+          },
+          {
+            "day": "2026-10-11",
+            "count": 0
+          },
+          {
+            "day": "2026-10-12",
+            "count": 0
+          },
+          {
+            "day": "2026-10-13",
+            "count": 0
+          },
+          {
+            "day": "2026-10-14",
+            "count": 0
+          },
+          {
+            "day": "2026-10-15",
+            "count": 0
+          },
+          {
+            "day": "2026-10-16",
+            "count": 0
+          },
+          {
+            "day": "2026-10-17",
+            "count": 0
+          },
+          {
+            "day": "2026-10-18",
+            "count": 0
+          },
+          {
+            "day": "2026-10-19",
+            "count": 0
+          },
+          {
+            "day": "2026-10-20",
+            "count": 0
+          },
+          {
+            "day": "2026-10-21",
+            "count": 0
+          },
+          {
+            "day": "2026-10-22",
+            "count": 0
+          },
+          {
+            "day": "2026-10-23",
+            "count": 0
+          },
+          {
+            "day": "2026-10-24",
+            "count": 0
+          },
+          {
+            "day": "2026-10-25",
+            "count": 0
+          },
+          {
+            "day": "2026-10-26",
+            "count": 1
+          },
+          {
+            "day": "2026-10-27",
+            "count": 4
+          },
+          {
+            "day": "2026-10-28",
+            "count": 2
+          },
+          {
+            "day": "2026-10-29",
+            "count": 5
+          },
+          {
+            "day": "2026-10-30",
+            "count": 3
+          },
+          {
+            "day": "2026-10-31",
+            "count": 1
+          },
+          {
+            "day": "2026-11-01",
+            "count": 4
+          },
+          {
+            "day": "2026-11-02",
+            "count": 2
+          },
+          {
+            "day": "2026-11-03",
+            "count": 5
+          },
+          {
+            "day": "2026-11-04",
+            "count": 3
+          },
+          {
+            "day": "2026-11-05",
+            "count": 1
+          },
+          {
+            "day": "2026-11-06",
+            "count": 4
+          }
+        ]
+      },
+      "afterOneAction": {
+        "activityDays": 18,
+        "oldestActivityDay": "2026-09-15",
+        "todayCount": 5,
+        "recentIds": [
+          "lesson:sql-fundamentals/limiting-results",
+          "quiz:aggregates-and-joins",
+          "challenge:count-books-by-genre",
+          "lesson:sql-fundamentals/sorting-with-order-by",
+          "quiz:select-fundamentals",
+          "challenge:most-expensive-first",
+          "challenge:recent-affordable-books",
+          "lesson:sql-fundamentals/filtering-with-where",
+          "challenge:choose-columns"
+        ]
+      }
+    },
+    "long-history": {
+      "parsed": {
+        "version": 1,
+        "lessons": {
+          "sql-fundamentals/what-is-sql": {
+            "completedAt": "2025-09-23T10:00:00.000Z"
+          },
+          "sql-fundamentals/introduction-to-select": {
+            "completedAt": "2025-09-30T10:00:00.000Z"
+          },
+          "sql-fundamentals/filtering-with-where": {
+            "completedAt": "2025-10-07T10:00:00.000Z"
+          },
+          "sql-fundamentals/sorting-with-order-by": {
+            "completedAt": "2025-10-14T10:00:00.000Z"
+          },
+          "sql-fundamentals/limiting-results": {
+            "completedAt": "2025-10-21T10:00:00.000Z"
+          },
+          "summarising-data/counting-rows": {
+            "completedAt": "2025-10-28T10:00:00.000Z"
+          },
+          "summarising-data/sum-avg-min-max": {
+            "completedAt": "2025-11-04T10:00:00.000Z"
+          },
+          "summarising-data/grouping-with-group-by": {
+            "completedAt": "2025-11-11T10:00:00.000Z"
+          },
+          "summarising-data/filtering-groups-with-having": {
+            "completedAt": "2025-11-18T10:00:00.000Z"
+          }
+        },
+        "challenges": {
+          "choose-columns": {
+            "solvedAt": "2025-12-02T10:00:00.000Z",
+            "attempts": 1,
+            "hintsUsed": 0,
+            "revealedSolution": true,
+            "revealedBeforeSolving": false
+          },
+          "recent-affordable-books": {
+            "solvedAt": "2025-12-22T10:00:00.000Z",
+            "attempts": 2,
+            "hintsUsed": 1,
+            "revealedSolution": false,
+            "revealedBeforeSolving": false
+          },
+          "most-expensive-first": {
+            "solvedAt": "2026-01-11T10:00:00.000Z",
+            "attempts": 3,
+            "hintsUsed": 2,
+            "revealedSolution": false,
+            "revealedBeforeSolving": false
+          },
+          "three-newest": {
+            "solvedAt": "2026-01-31T10:00:00.000Z",
+            "attempts": 1,
+            "hintsUsed": 0,
+            "revealedSolution": false,
+            "revealedBeforeSolving": false
+          },
+          "distinct-genres": {
+            "solvedAt": "2026-02-20T10:00:00.000Z",
+            "attempts": 2,
+            "hintsUsed": 1,
+            "revealedSolution": false,
+            "revealedBeforeSolving": false
+          },
+          "count-books-by-genre": {
+            "solvedAt": "2026-03-12T10:00:00.000Z",
+            "attempts": 3,
+            "hintsUsed": 2,
+            "revealedSolution": true,
+            "revealedBeforeSolving": false
+          },
+          "price-summary": {
+            "solvedAt": "2026-04-01T10:00:00.000Z",
+            "attempts": 1,
+            "hintsUsed": 0,
+            "revealedSolution": false,
+            "revealedBeforeSolving": false
+          },
+          "pricey-genres": {
+            "solvedAt": "2026-04-21T10:00:00.000Z",
+            "attempts": 2,
+            "hintsUsed": 1,
+            "revealedSolution": false,
+            "revealedBeforeSolving": false
+          },
+          "books-and-countries": {
+            "solvedAt": "2026-05-11T10:00:00.000Z",
+            "attempts": 3,
+            "hintsUsed": 2,
+            "revealedSolution": false,
+            "revealedBeforeSolving": false
+          },
+          "authors-and-book-counts": {
+            "solvedAt": "2026-05-31T10:00:00.000Z",
+            "attempts": 1,
+            "hintsUsed": 0,
+            "revealedSolution": false,
+            "revealedBeforeSolving": false
+          },
+          "above-average-price": {
+            "solvedAt": "2026-06-20T10:00:00.000Z",
+            "attempts": 2,
+            "hintsUsed": 1,
+            "revealedSolution": true,
+            "revealedBeforeSolving": false
+          },
+          "price-bands": {
+            "solvedAt": "2026-07-10T10:00:00.000Z",
+            "attempts": 3,
+            "hintsUsed": 2,
+            "revealedSolution": false,
+            "revealedBeforeSolving": false
+          },
+          "customer-spending": {
+            "solvedAt": "2026-07-30T10:00:00.000Z",
+            "attempts": 1,
+            "hintsUsed": 0,
+            "revealedSolution": false,
+            "revealedBeforeSolving": false
+          },
+          "bestselling-books": {
+            "solvedAt": "2026-08-19T10:00:00.000Z",
+            "attempts": 2,
+            "hintsUsed": 1,
+            "revealedSolution": false,
+            "revealedBeforeSolving": false
+          },
+          "rank-within-genre": {
+            "solvedAt": "2026-09-08T10:00:00.000Z",
+            "attempts": 3,
+            "hintsUsed": 2,
+            "revealedSolution": false,
+            "revealedBeforeSolving": false
+          }
+        },
+        "quizzes": {
+          "select-fundamentals": {
+            "bestScore": 5,
+            "lastScore": 5,
+            "total": 5,
+            "attempts": 2,
+            "lastTakenAt": "2026-10-07T10:00:00.000Z"
+          },
+          "aggregates-and-joins": {
+            "bestScore": 5,
+            "lastScore": 4,
+            "total": 5,
+            "attempts": 3,
+            "lastTakenAt": "2026-10-08T10:00:00.000Z"
+          },
+          "advanced-queries": {
+            "bestScore": 5,
+            "lastScore": 5,
+            "total": 5,
+            "attempts": 4,
+            "lastTakenAt": "2026-10-09T10:00:00.000Z"
+          }
+        },
+        "activity": {
+          "2025-09-23": 1,
+          "2025-09-24": 2,
+          "2025-09-25": 3,
+          "2025-09-26": 4,
+          "2025-09-27": 1,
+          "2025-09-28": 2,
+          "2025-09-29": 3,
+          "2025-09-30": 4,
+          "2025-10-01": 1,
+          "2025-10-02": 2,
+          "2025-10-03": 3,
+          "2025-10-04": 4,
+          "2025-10-05": 1,
+          "2025-10-06": 2,
+          "2025-10-07": 3,
+          "2025-10-08": 4,
+          "2025-10-09": 1,
+          "2025-10-10": 2,
+          "2025-10-11": 3,
+          "2025-10-12": 4,
+          "2025-10-13": 1,
+          "2025-10-14": 2,
+          "2025-10-15": 3,
+          "2025-10-16": 4,
+          "2025-10-17": 1,
+          "2025-10-18": 2,
+          "2025-10-19": 3,
+          "2025-10-20": 4,
+          "2025-10-21": 1,
+          "2025-10-22": 2,
+          "2025-10-23": 3,
+          "2025-10-24": 4,
+          "2025-10-25": 1,
+          "2025-10-26": 2,
+          "2025-10-27": 3,
+          "2025-10-28": 4,
+          "2025-10-29": 1,
+          "2025-10-30": 2,
+          "2025-10-31": 3,
+          "2025-11-01": 4,
+          "2025-11-02": 1,
+          "2025-11-03": 2,
+          "2025-11-04": 3,
+          "2025-11-05": 4,
+          "2025-11-06": 1,
+          "2025-11-07": 2,
+          "2025-11-08": 3,
+          "2025-11-09": 4,
+          "2025-11-10": 1,
+          "2025-11-11": 2,
+          "2025-11-12": 3,
+          "2025-11-13": 4,
+          "2025-11-14": 1,
+          "2025-11-15": 2,
+          "2025-11-16": 3,
+          "2025-11-17": 4,
+          "2025-11-18": 1,
+          "2025-11-19": 2,
+          "2025-11-20": 3,
+          "2025-11-21": 4,
+          "2025-11-22": 1,
+          "2025-11-23": 2,
+          "2025-11-24": 3,
+          "2025-11-25": 4,
+          "2025-11-26": 1,
+          "2025-11-27": 2,
+          "2025-11-28": 3,
+          "2025-11-29": 4,
+          "2025-11-30": 1,
+          "2025-12-01": 2,
+          "2025-12-02": 3,
+          "2025-12-03": 4,
+          "2025-12-04": 1,
+          "2025-12-05": 2,
+          "2025-12-06": 3,
+          "2025-12-07": 4,
+          "2025-12-08": 1,
+          "2025-12-09": 2,
+          "2025-12-10": 3,
+          "2025-12-11": 4,
+          "2025-12-12": 1,
+          "2025-12-13": 2,
+          "2025-12-14": 3,
+          "2025-12-15": 4,
+          "2025-12-16": 1,
+          "2025-12-17": 2,
+          "2025-12-18": 3,
+          "2025-12-19": 4,
+          "2025-12-20": 1,
+          "2025-12-21": 2,
+          "2025-12-22": 3,
+          "2025-12-23": 4,
+          "2025-12-24": 1,
+          "2025-12-25": 2,
+          "2025-12-26": 3,
+          "2025-12-27": 4,
+          "2025-12-28": 1,
+          "2025-12-29": 2,
+          "2025-12-30": 3,
+          "2025-12-31": 4,
+          "2026-01-01": 1,
+          "2026-01-02": 2,
+          "2026-01-03": 3,
+          "2026-01-04": 4,
+          "2026-01-05": 1,
+          "2026-01-06": 2,
+          "2026-01-07": 3,
+          "2026-01-08": 4,
+          "2026-01-09": 1,
+          "2026-01-10": 2,
+          "2026-01-11": 3,
+          "2026-01-12": 4,
+          "2026-01-13": 1,
+          "2026-01-14": 2,
+          "2026-01-15": 3,
+          "2026-01-16": 4,
+          "2026-01-17": 1,
+          "2026-01-18": 2,
+          "2026-01-19": 3,
+          "2026-01-20": 4,
+          "2026-01-21": 1,
+          "2026-01-22": 2,
+          "2026-01-23": 3,
+          "2026-01-24": 4,
+          "2026-01-25": 1,
+          "2026-01-26": 2,
+          "2026-01-27": 3,
+          "2026-01-28": 4,
+          "2026-01-29": 1,
+          "2026-01-30": 2,
+          "2026-01-31": 3,
+          "2026-02-01": 4,
+          "2026-02-02": 1,
+          "2026-02-03": 2,
+          "2026-02-04": 3,
+          "2026-02-05": 4,
+          "2026-02-06": 1,
+          "2026-02-07": 2,
+          "2026-02-08": 3,
+          "2026-02-09": 4,
+          "2026-02-10": 1,
+          "2026-02-11": 2,
+          "2026-02-12": 3,
+          "2026-02-13": 4,
+          "2026-02-14": 1,
+          "2026-02-15": 2,
+          "2026-02-16": 3,
+          "2026-02-17": 4,
+          "2026-02-18": 1,
+          "2026-02-19": 2,
+          "2026-02-20": 3,
+          "2026-02-21": 4,
+          "2026-02-22": 1,
+          "2026-02-23": 2,
+          "2026-02-24": 3,
+          "2026-02-25": 4,
+          "2026-02-26": 1,
+          "2026-02-27": 2,
+          "2026-02-28": 3,
+          "2026-03-01": 4,
+          "2026-03-02": 1,
+          "2026-03-03": 2,
+          "2026-03-04": 3,
+          "2026-03-05": 4,
+          "2026-03-06": 1,
+          "2026-03-07": 2,
+          "2026-03-08": 3,
+          "2026-03-09": 4,
+          "2026-03-10": 1,
+          "2026-03-11": 2,
+          "2026-03-12": 3,
+          "2026-03-13": 4,
+          "2026-03-14": 1,
+          "2026-03-15": 2,
+          "2026-03-16": 3,
+          "2026-03-17": 4,
+          "2026-03-18": 1,
+          "2026-03-19": 2,
+          "2026-03-20": 3,
+          "2026-03-21": 4,
+          "2026-03-22": 1,
+          "2026-03-23": 2,
+          "2026-03-24": 3,
+          "2026-03-25": 4,
+          "2026-03-26": 1,
+          "2026-03-27": 2,
+          "2026-03-28": 3,
+          "2026-03-29": 4,
+          "2026-03-30": 1,
+          "2026-03-31": 2,
+          "2026-04-01": 3,
+          "2026-04-02": 4,
+          "2026-04-03": 1,
+          "2026-04-04": 2,
+          "2026-04-05": 3,
+          "2026-04-06": 4,
+          "2026-04-07": 1,
+          "2026-04-08": 2,
+          "2026-04-09": 3,
+          "2026-04-10": 4,
+          "2026-04-11": 1,
+          "2026-04-12": 2,
+          "2026-04-13": 3,
+          "2026-04-14": 4,
+          "2026-04-15": 1,
+          "2026-04-16": 2,
+          "2026-04-17": 3,
+          "2026-04-18": 4,
+          "2026-04-19": 1,
+          "2026-04-20": 2,
+          "2026-04-21": 3,
+          "2026-04-22": 4,
+          "2026-04-23": 1,
+          "2026-04-24": 2,
+          "2026-04-25": 3,
+          "2026-04-26": 4,
+          "2026-04-27": 1,
+          "2026-04-28": 2,
+          "2026-04-29": 3,
+          "2026-04-30": 4,
+          "2026-05-01": 1,
+          "2026-05-02": 2,
+          "2026-05-03": 3,
+          "2026-05-04": 4,
+          "2026-05-05": 1,
+          "2026-05-06": 2,
+          "2026-05-07": 3,
+          "2026-05-08": 4,
+          "2026-05-09": 1,
+          "2026-05-10": 2,
+          "2026-05-11": 3,
+          "2026-05-12": 4,
+          "2026-05-13": 1,
+          "2026-05-14": 2,
+          "2026-05-15": 3,
+          "2026-05-16": 4,
+          "2026-05-17": 1,
+          "2026-05-18": 2,
+          "2026-05-19": 3,
+          "2026-05-20": 4,
+          "2026-05-21": 1,
+          "2026-05-22": 2,
+          "2026-05-23": 3,
+          "2026-05-24": 4,
+          "2026-05-25": 1,
+          "2026-05-26": 2,
+          "2026-05-27": 3,
+          "2026-05-28": 4,
+          "2026-05-29": 1,
+          "2026-05-30": 2,
+          "2026-05-31": 3,
+          "2026-06-01": 4,
+          "2026-06-02": 1,
+          "2026-06-03": 2,
+          "2026-06-04": 3,
+          "2026-06-05": 4,
+          "2026-06-06": 1,
+          "2026-06-07": 2,
+          "2026-06-08": 3,
+          "2026-06-09": 4,
+          "2026-06-10": 1,
+          "2026-06-11": 2,
+          "2026-06-12": 3,
+          "2026-06-13": 4,
+          "2026-06-14": 1,
+          "2026-06-15": 2,
+          "2026-06-16": 3,
+          "2026-06-17": 4,
+          "2026-06-18": 1,
+          "2026-06-19": 2,
+          "2026-06-20": 3,
+          "2026-06-21": 4,
+          "2026-06-22": 1,
+          "2026-06-23": 2,
+          "2026-06-24": 3,
+          "2026-06-25": 4,
+          "2026-06-26": 1,
+          "2026-06-27": 2,
+          "2026-06-28": 3,
+          "2026-06-29": 4,
+          "2026-06-30": 1,
+          "2026-07-01": 2,
+          "2026-07-02": 3,
+          "2026-07-03": 4,
+          "2026-07-04": 1,
+          "2026-07-05": 2,
+          "2026-07-06": 3,
+          "2026-07-07": 4,
+          "2026-07-08": 1,
+          "2026-07-09": 2,
+          "2026-07-10": 3,
+          "2026-07-11": 4,
+          "2026-07-12": 1,
+          "2026-07-13": 2,
+          "2026-07-14": 3,
+          "2026-07-15": 4,
+          "2026-07-16": 1,
+          "2026-07-17": 2,
+          "2026-07-18": 3,
+          "2026-07-19": 4,
+          "2026-07-20": 1,
+          "2026-07-21": 2,
+          "2026-07-22": 3,
+          "2026-07-23": 4,
+          "2026-07-24": 1,
+          "2026-07-25": 2,
+          "2026-07-26": 3,
+          "2026-07-27": 4,
+          "2026-07-28": 1,
+          "2026-07-29": 2,
+          "2026-07-30": 3,
+          "2026-07-31": 4,
+          "2026-08-01": 1,
+          "2026-08-02": 2,
+          "2026-08-03": 3,
+          "2026-08-04": 4,
+          "2026-08-05": 1,
+          "2026-08-06": 2,
+          "2026-08-07": 3,
+          "2026-08-08": 4,
+          "2026-08-09": 1,
+          "2026-08-10": 2,
+          "2026-08-11": 3,
+          "2026-08-12": 4,
+          "2026-08-13": 1,
+          "2026-08-14": 2,
+          "2026-08-15": 3,
+          "2026-08-16": 4,
+          "2026-08-17": 1,
+          "2026-08-18": 2,
+          "2026-08-19": 3,
+          "2026-08-20": 4,
+          "2026-08-21": 1,
+          "2026-08-22": 2,
+          "2026-08-23": 3,
+          "2026-08-24": 4,
+          "2026-08-25": 1,
+          "2026-08-26": 2,
+          "2026-08-27": 3,
+          "2026-08-28": 4,
+          "2026-08-29": 1,
+          "2026-08-30": 2,
+          "2026-08-31": 3,
+          "2026-09-01": 4,
+          "2026-09-02": 1,
+          "2026-09-03": 2,
+          "2026-09-04": 3,
+          "2026-09-05": 4,
+          "2026-09-06": 1,
+          "2026-09-07": 2,
+          "2026-09-08": 3,
+          "2026-09-09": 4,
+          "2026-09-10": 1,
+          "2026-09-11": 2,
+          "2026-09-12": 3,
+          "2026-09-13": 4,
+          "2026-09-14": 1,
+          "2026-09-15": 2,
+          "2026-09-16": 3,
+          "2026-09-17": 4,
+          "2026-09-18": 1,
+          "2026-09-19": 2,
+          "2026-09-20": 3,
+          "2026-09-21": 4,
+          "2026-09-22": 1,
+          "2026-09-23": 2,
+          "2026-09-24": 3,
+          "2026-09-25": 4,
+          "2026-09-26": 1,
+          "2026-09-27": 2,
+          "2026-09-28": 3,
+          "2026-09-29": 4,
+          "2026-09-30": 1,
+          "2026-10-01": 2,
+          "2026-10-02": 3,
+          "2026-10-03": 4,
+          "2026-10-04": 1,
+          "2026-10-05": 2,
+          "2026-10-06": 3,
+          "2026-10-07": 4,
+          "2026-10-08": 1,
+          "2026-10-09": 2,
+          "2026-10-10": 3,
+          "2026-10-11": 4,
+          "2026-10-12": 1,
+          "2026-10-13": 2,
+          "2026-10-14": 3,
+          "2026-10-15": 4,
+          "2026-10-16": 1,
+          "2026-10-17": 2,
+          "2026-10-18": 3,
+          "2026-10-19": 4,
+          "2026-10-20": 1,
+          "2026-10-21": 2,
+          "2026-10-22": 3,
+          "2026-10-23": 4,
+          "2026-10-24": 1,
+          "2026-10-25": 2,
+          "2026-10-26": 3,
+          "2026-10-27": 4,
+          "2026-10-28": 1,
+          "2026-10-29": 2,
+          "2026-10-30": 3,
+          "2026-10-31": 4,
+          "2026-11-01": 1,
+          "2026-11-02": 2,
+          "2026-11-03": 3,
+          "2026-11-04": 4,
+          "2026-11-05": 1,
+          "2026-11-06": 2
+        },
+        "recent": [
+          {
+            "kind": "quiz",
+            "id": "advanced-queries",
+            "at": "2026-10-09T10:00:00.000Z",
+            "detail": "5/5"
+          },
+          {
+            "kind": "quiz",
+            "id": "aggregates-and-joins",
+            "at": "2026-10-08T10:00:00.000Z",
+            "detail": "5/5"
+          },
+          {
+            "kind": "quiz",
+            "id": "select-fundamentals",
+            "at": "2026-10-07T10:00:00.000Z",
+            "detail": "5/5"
+          },
+          {
+            "kind": "challenge",
+            "id": "rank-within-genre",
+            "at": "2026-09-08T10:00:00.000Z"
+          },
+          {
+            "kind": "challenge",
+            "id": "bestselling-books",
+            "at": "2026-08-19T10:00:00.000Z"
+          },
+          {
+            "kind": "challenge",
+            "id": "customer-spending",
+            "at": "2026-07-30T10:00:00.000Z"
+          },
+          {
+            "kind": "challenge",
+            "id": "price-bands",
+            "at": "2026-07-10T10:00:00.000Z"
+          },
+          {
+            "kind": "challenge",
+            "id": "above-average-price",
+            "at": "2026-06-20T10:00:00.000Z"
+          },
+          {
+            "kind": "challenge",
+            "id": "authors-and-book-counts",
+            "at": "2026-05-31T10:00:00.000Z"
+          },
+          {
+            "kind": "challenge",
+            "id": "books-and-countries",
+            "at": "2026-05-11T10:00:00.000Z"
+          },
+          {
+            "kind": "challenge",
+            "id": "pricey-genres",
+            "at": "2026-04-21T10:00:00.000Z"
+          },
+          {
+            "kind": "challenge",
+            "id": "price-summary",
+            "at": "2026-04-01T10:00:00.000Z"
+          },
+          {
+            "kind": "challenge",
+            "id": "count-books-by-genre",
+            "at": "2026-03-12T10:00:00.000Z"
+          },
+          {
+            "kind": "challenge",
+            "id": "distinct-genres",
+            "at": "2026-02-20T10:00:00.000Z"
+          },
+          {
+            "kind": "challenge",
+            "id": "three-newest",
+            "at": "2026-01-31T10:00:00.000Z"
+          },
+          {
+            "kind": "challenge",
+            "id": "most-expensive-first",
+            "at": "2026-01-11T10:00:00.000Z"
+          },
+          {
+            "kind": "challenge",
+            "id": "recent-affordable-books",
+            "at": "2025-12-22T10:00:00.000Z"
+          },
+          {
+            "kind": "challenge",
+            "id": "choose-columns",
+            "at": "2025-12-02T10:00:00.000Z"
+          },
+          {
+            "kind": "lesson",
+            "id": "summarising-data/filtering-groups-with-having",
+            "at": "2025-11-18T10:00:00.000Z"
+          },
+          {
+            "kind": "lesson",
+            "id": "summarising-data/grouping-with-group-by",
+            "at": "2025-11-11T10:00:00.000Z"
+          }
+        ]
+      },
+      "stableAfterSaveAndLoad": true,
+      "summary": {
+        "lessons": {
+          "done": 9,
+          "total": 9
+        },
+        "lessonsPercent": 100,
+        "modules": {
+          "sql-fundamentals": {
+            "done": 5,
+            "total": 5
+          },
+          "summarising-data": {
+            "done": 4,
+            "total": 4
+          }
+        },
+        "nextLesson": null,
+        "challenges": {
+          "done": 15,
+          "total": 15,
+          "byLevel": {
+            "beginner": {
+              "done": 5,
+              "total": 5
+            },
+            "intermediate": {
+              "done": 5,
+              "total": 5
+            },
+            "advanced": {
+              "done": 5,
+              "total": 5
+            }
+          }
+        },
+        "nextChallenge": null,
+        "quizzes": {
+          "done": 3,
+          "total": 3,
+          "averageBest": 100
+        },
+        "streak": {
+          "current": 410,
+          "longest": 410,
+          "activeToday": true,
+          "activeDays": 410
+        },
+        "last30Days": [
+          {
+            "day": "2026-10-08",
+            "count": 1
+          },
+          {
+            "day": "2026-10-09",
+            "count": 2
+          },
+          {
+            "day": "2026-10-10",
+            "count": 3
+          },
+          {
+            "day": "2026-10-11",
+            "count": 4
+          },
+          {
+            "day": "2026-10-12",
+            "count": 1
+          },
+          {
+            "day": "2026-10-13",
+            "count": 2
+          },
+          {
+            "day": "2026-10-14",
+            "count": 3
+          },
+          {
+            "day": "2026-10-15",
+            "count": 4
+          },
+          {
+            "day": "2026-10-16",
+            "count": 1
+          },
+          {
+            "day": "2026-10-17",
+            "count": 2
+          },
+          {
+            "day": "2026-10-18",
+            "count": 3
+          },
+          {
+            "day": "2026-10-19",
+            "count": 4
+          },
+          {
+            "day": "2026-10-20",
+            "count": 1
+          },
+          {
+            "day": "2026-10-21",
+            "count": 2
+          },
+          {
+            "day": "2026-10-22",
+            "count": 3
+          },
+          {
+            "day": "2026-10-23",
+            "count": 4
+          },
+          {
+            "day": "2026-10-24",
+            "count": 1
+          },
+          {
+            "day": "2026-10-25",
+            "count": 2
+          },
+          {
+            "day": "2026-10-26",
+            "count": 3
+          },
+          {
+            "day": "2026-10-27",
+            "count": 4
+          },
+          {
+            "day": "2026-10-28",
+            "count": 1
+          },
+          {
+            "day": "2026-10-29",
+            "count": 2
+          },
+          {
+            "day": "2026-10-30",
+            "count": 3
+          },
+          {
+            "day": "2026-10-31",
+            "count": 4
+          },
+          {
+            "day": "2026-11-01",
+            "count": 1
+          },
+          {
+            "day": "2026-11-02",
+            "count": 2
+          },
+          {
+            "day": "2026-11-03",
+            "count": 3
+          },
+          {
+            "day": "2026-11-04",
+            "count": 4
+          },
+          {
+            "day": "2026-11-05",
+            "count": 1
+          },
+          {
+            "day": "2026-11-06",
+            "count": 2
+          }
+        ]
+      },
+      "afterOneAction": {
+        "activityDays": 400,
+        "oldestActivityDay": "2025-10-03",
+        "todayCount": 3,
+        "recentIds": [
+          "lesson:sql-fundamentals/limiting-results",
+          "quiz:advanced-queries",
+          "quiz:aggregates-and-joins",
+          "quiz:select-fundamentals",
+          "challenge:rank-within-genre",
+          "challenge:bestselling-books",
+          "challenge:customer-spending",
+          "challenge:price-bands",
+          "challenge:above-average-price",
+          "challenge:authors-and-book-counts",
+          "challenge:books-and-countries",
+          "challenge:pricey-genres",
+          "challenge:price-summary",
+          "challenge:count-books-by-genre",
+          "challenge:distinct-genres",
+          "challenge:three-newest",
+          "challenge:most-expensive-first",
+          "challenge:recent-affordable-books",
+          "challenge:choose-columns",
+          "lesson:summarising-data/filtering-groups-with-having"
+        ]
+      }
+    },
+    "damaged": {
+      "parsed": {
+        "version": 1,
+        "lessons": {
+          "sql-fundamentals/what-is-sql": {
+            "completedAt": "2026-11-03T09:00:00.000Z"
+          },
+          "sql-fundamentals/removed-lesson": {
+            "completedAt": "2026-11-03T09:05:00.000Z"
+          }
+        },
+        "challenges": {
+          "choose-columns": {
+            "solvedAt": "2026-11-03T10:00:00.000Z",
+            "attempts": 2,
+            "hintsUsed": 1,
+            "revealedSolution": false,
+            "revealedBeforeSolving": false
+          },
+          "challenge-that-no-longer-exists": {
+            "solvedAt": "2026-11-02T10:00:00.000Z",
+            "attempts": 1,
+            "hintsUsed": 0,
+            "revealedSolution": false,
+            "revealedBeforeSolving": false
+          }
+        },
+        "quizzes": {
+          "select-fundamentals": {
+            "bestScore": 3,
+            "lastScore": 3,
+            "total": 5,
+            "attempts": 1,
+            "lastTakenAt": "2026-11-03T12:00:00.000Z"
+          }
+        },
+        "activity": {
+          "2026-11-03": 2,
+          "2026-11-02": 1
+        },
+        "recent": [
+          {
+            "kind": "challenge",
+            "id": "choose-columns",
+            "at": "2026-11-03T10:00:00.000Z"
+          },
+          {
+            "kind": "quiz",
+            "id": "select-fundamentals",
+            "at": "2026-11-03T12:00:00.000Z",
+            "detail": "3/5"
+          }
+        ]
+      },
+      "stableAfterSaveAndLoad": true,
+      "summary": {
+        "lessons": {
+          "done": 1,
+          "total": 9
+        },
+        "lessonsPercent": 11,
+        "modules": {
+          "sql-fundamentals": {
+            "done": 1,
+            "total": 5
+          },
+          "summarising-data": {
+            "done": 0,
+            "total": 4
+          }
+        },
+        "nextLesson": "sql-fundamentals/introduction-to-select",
+        "challenges": {
+          "done": 1,
+          "total": 15,
+          "byLevel": {
+            "beginner": {
+              "done": 1,
+              "total": 5
+            },
+            "intermediate": {
+              "done": 0,
+              "total": 5
+            },
+            "advanced": {
+              "done": 0,
+              "total": 5
+            }
+          }
+        },
+        "nextChallenge": "recent-affordable-books",
+        "quizzes": {
+          "done": 1,
+          "total": 3,
+          "averageBest": 60
+        },
+        "streak": {
+          "current": 0,
+          "longest": 2,
+          "activeToday": false,
+          "activeDays": 2
+        },
+        "last30Days": [
+          {
+            "day": "2026-10-08",
+            "count": 0
+          },
+          {
+            "day": "2026-10-09",
+            "count": 0
+          },
+          {
+            "day": "2026-10-10",
+            "count": 0
+          },
+          {
+            "day": "2026-10-11",
+            "count": 0
+          },
+          {
+            "day": "2026-10-12",
+            "count": 0
+          },
+          {
+            "day": "2026-10-13",
+            "count": 0
+          },
+          {
+            "day": "2026-10-14",
+            "count": 0
+          },
+          {
+            "day": "2026-10-15",
+            "count": 0
+          },
+          {
+            "day": "2026-10-16",
+            "count": 0
+          },
+          {
+            "day": "2026-10-17",
+            "count": 0
+          },
+          {
+            "day": "2026-10-18",
+            "count": 0
+          },
+          {
+            "day": "2026-10-19",
+            "count": 0
+          },
+          {
+            "day": "2026-10-20",
+            "count": 0
+          },
+          {
+            "day": "2026-10-21",
+            "count": 0
+          },
+          {
+            "day": "2026-10-22",
+            "count": 0
+          },
+          {
+            "day": "2026-10-23",
+            "count": 0
+          },
+          {
+            "day": "2026-10-24",
+            "count": 0
+          },
+          {
+            "day": "2026-10-25",
+            "count": 0
+          },
+          {
+            "day": "2026-10-26",
+            "count": 0
+          },
+          {
+            "day": "2026-10-27",
+            "count": 0
+          },
+          {
+            "day": "2026-10-28",
+            "count": 0
+          },
+          {
+            "day": "2026-10-29",
+            "count": 0
+          },
+          {
+            "day": "2026-10-30",
+            "count": 0
+          },
+          {
+            "day": "2026-10-31",
+            "count": 0
+          },
+          {
+            "day": "2026-11-01",
+            "count": 0
+          },
+          {
+            "day": "2026-11-02",
+            "count": 1
+          },
+          {
+            "day": "2026-11-03",
+            "count": 2
+          },
+          {
+            "day": "2026-11-04",
+            "count": 0
+          },
+          {
+            "day": "2026-11-05",
+            "count": 0
+          },
+          {
+            "day": "2026-11-06",
+            "count": 0
+          }
+        ]
+      },
+      "afterOneAction": {
+        "activityDays": 3,
+        "oldestActivityDay": "2026-11-02",
+        "todayCount": 1,
+        "recentIds": [
+          "lesson:sql-fundamentals/limiting-results",
+          "challenge:choose-columns",
+          "quiz:select-fundamentals"
+        ]
+      }
+    }
+  },
+  "refused": {
+    "otherVersion": null,
+    "notAnObject": null,
+    "anArray": null,
+    "nothing": null
+  }
+}

@@ -31,6 +31,13 @@ export const NAV = {
     description: 'Structured lessons that take you from your first query to joins and beyond.',
     icon: 'learn',
   },
+  paths: {
+    path: '/paths',
+    label: 'SQL Path',
+    title: 'SQL Path',
+    description: 'Career-based roadmaps that take you from SQL basics to the skills a specific job needs.',
+    icon: 'path',
+  },
   practice: {
     path: '/practice',
     label: 'Practice',
@@ -79,6 +86,7 @@ export const NAV = {
 export const PRIMARY_NAV: readonly NavItem[] = [
   NAV.dashboard,
   NAV.learn,
+  NAV.paths,
   NAV.practice,
   NAV.challenges,
   NAV.quizzes,

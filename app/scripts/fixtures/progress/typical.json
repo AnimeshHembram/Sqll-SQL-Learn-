@@ -1,0 +1,134 @@
+{
+  "version": 1,
+  "lessons": {
+    "sql-fundamentals/what-is-sql": {
+      "completedAt": "2026-10-01T09:15:00.000Z"
+    },
+    "sql-fundamentals/introduction-to-select": {
+      "completedAt": "2026-10-02T09:40:00.000Z"
+    },
+    "sql-fundamentals/filtering-with-where": {
+      "completedAt": "2026-10-27T18:05:00.000Z"
+    },
+    "sql-fundamentals/sorting-with-order-by": {
+      "completedAt": "2026-11-04T20:30:00.000Z"
+    }
+  },
+  "challenges": {
+    "choose-columns": {
+      "solvedAt": "2026-10-02T10:00:00.000Z",
+      "attempts": 1,
+      "hintsUsed": 0,
+      "revealedSolution": false,
+      "revealedBeforeSolving": false
+    },
+    "recent-affordable-books": {
+      "solvedAt": "2026-10-28T19:12:00.000Z",
+      "attempts": 3,
+      "hintsUsed": 1,
+      "revealedSolution": false,
+      "revealedBeforeSolving": false
+    },
+    "most-expensive-first": {
+      "solvedAt": "2026-11-01T11:00:00.000Z",
+      "attempts": 2,
+      "hintsUsed": 2,
+      "revealedSolution": true,
+      "revealedBeforeSolving": false
+    },
+    "three-newest": {
+      "solvedAt": null,
+      "attempts": 4,
+      "hintsUsed": 2,
+      "revealedSolution": true,
+      "revealedBeforeSolving": true
+    },
+    "count-books-by-genre": {
+      "solvedAt": "2026-11-05T21:45:00.000Z",
+      "attempts": 2,
+      "hintsUsed": 0,
+      "revealedSolution": false,
+      "revealedBeforeSolving": false
+    }
+  },
+  "quizzes": {
+    "select-fundamentals": {
+      "bestScore": 4,
+      "lastScore": 3,
+      "total": 5,
+      "attempts": 2,
+      "lastTakenAt": "2026-11-02T17:00:00.000Z"
+    },
+    "aggregates-and-joins": {
+      "bestScore": 5,
+      "lastScore": 5,
+      "total": 5,
+      "attempts": 1,
+      "lastTakenAt": "2026-11-06T08:30:00.000Z"
+    }
+  },
+  "activity": {
+    "2026-10-26": 1,
+    "2026-10-27": 4,
+    "2026-10-28": 2,
+    "2026-10-29": 5,
+    "2026-10-30": 3,
+    "2026-10-31": 1,
+    "2026-11-01": 4,
+    "2026-11-02": 2,
+    "2026-11-03": 5,
+    "2026-11-04": 3,
+    "2026-11-05": 1,
+    "2026-11-06": 4,
+    "2026-10-01": 2,
+    "2026-10-02": 2,
+    "2026-10-03": 2,
+    "2026-10-04": 2,
+    "2026-10-05": 2,
+    "2026-09-15": 1
+  },
+  "recent": [
+    {
+      "kind": "quiz",
+      "id": "aggregates-and-joins",
+      "at": "2026-11-06T08:30:00.000Z",
+      "detail": "5/5"
+    },
+    {
+      "kind": "challenge",
+      "id": "count-books-by-genre",
+      "at": "2026-11-05T21:45:00.000Z"
+    },
+    {
+      "kind": "lesson",
+      "id": "sql-fundamentals/sorting-with-order-by",
+      "at": "2026-11-04T20:30:00.000Z"
+    },
+    {
+      "kind": "quiz",
+      "id": "select-fundamentals",
+      "at": "2026-11-02T17:00:00.000Z",
+      "detail": "3/5"
+    },
+    {
+      "kind": "challenge",
+      "id": "most-expensive-first",
+      "at": "2026-11-01T11:00:00.000Z"
+    },
+    {
+      "kind": "challenge",
+      "id": "recent-affordable-books",
+      "at": "2026-10-28T19:12:00.000Z"
+    },
+    {
+      "kind": "lesson",
+      "id": "sql-fundamentals/filtering-with-where",
+      "at": "2026-10-27T18:05:00.000Z"
+    },
+    {
+      "kind": "challenge",
+      "id": "choose-columns",
+      "at": "2026-10-02T10:00:00.000Z"
+    }
+  ]
+}

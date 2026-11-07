@@ -1,0 +1,93 @@
+{
+  "note": "Baseline sizes recorded from the build before Phase 0 changes, with the approved limits.",
+  "recordedAt": "2026-11-07T05:37:51.552Z",
+  "node": "v24.15.0",
+  "assets": {
+    "index.js": {
+      "baselineBytes": 561281,
+      "limitPercent": 2,
+      "limitBytes": 572506
+    },
+    "useSqlEngine.js": {
+      "baselineBytes": 375397,
+      "limitPercent": 3,
+      "limitBytes": 386658
+    },
+    "ChallengePage.js": {
+      "baselineBytes": 13057,
+      "limitPercent": 5,
+      "limitBytes": 13709
+    },
+    "_virtual_sql-learner-challenge-solutions.js": {
+      "baselineBytes": 12854,
+      "limitPercent": 5,
+      "limitBytes": 13496
+    },
+    "sql.worker.js": {
+      "baselineBytes": 64728,
+      "limitPercent": 15,
+      "limitBytes": 74437
+    }
+  },
+  "allBaselineAssets": {
+    "ChallengePage.css": {
+      "bytes": 4838,
+      "gzipBytes": 1190
+    },
+    "ChallengePage.js": {
+      "bytes": 13057,
+      "gzipBytes": 4628
+    },
+    "PracticePage.css": {
+      "bytes": 1117,
+      "gzipBytes": 492
+    },
+    "PracticePage.js": {
+      "bytes": 5743,
+      "gzipBytes": 2333
+    },
+    "_virtual_sql-learner-challenge-solutions.js": {
+      "bytes": 12854,
+      "gzipBytes": 4000
+    },
+    "index.js": {
+      "bytes": 561281,
+      "gzipBytes": 155140
+    },
+    "index.css": {
+      "bytes": 39030,
+      "gzipBytes": 7516
+    },
+    "sql-wasm-browser.wasm": {
+      "bytes": 684897,
+      "gzipBytes": 336340
+    },
+    "sql.worker.js": {
+      "bytes": 64728,
+      "gzipBytes": 22633
+    },
+    "useSqlEngine.css": {
+      "bytes": 2904,
+      "gzipBytes": 830
+    },
+    "useSqlEngine.js": {
+      "bytes": 375397,
+      "gzipBytes": 121571
+    }
+  },
+  "distTotal": {
+    "baselineBytes": 1774604,
+    "limitPercent": 5,
+    "limitBytes": 1863334
+  },
+  "offlineIndexHtml": {
+    "baselineBytes": 2000927,
+    "limitPercent": 3,
+    "limitBytes": 2060954
+  },
+  "offlineFiles": [
+    "build-info.js",
+    "favicon.svg",
+    "index.html"
+  ]
+}

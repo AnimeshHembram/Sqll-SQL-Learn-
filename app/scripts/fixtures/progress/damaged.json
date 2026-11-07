@@ -1,0 +1,140 @@
+{
+  "version": 1,
+  "unexpectedTopLevel": {
+    "x": 1
+  },
+  "lessons": {
+    "sql-fundamentals/what-is-sql": {
+      "completedAt": "2026-11-03T09:00:00.000Z"
+    },
+    "sql-fundamentals/removed-lesson": {
+      "completedAt": "2026-11-03T09:05:00.000Z"
+    },
+    "sql-fundamentals/introduction-to-select": {
+      "completedAt": "not a date"
+    },
+    "summarising-data/counting-rows": {
+      "completedAt": 12345
+    },
+    "__proto__": {
+      "completedAt": "2026-11-03T10:00:00.000Z"
+    },
+    "constructor/prototype": {
+      "completedAt": "2026-11-03T10:00:00.000Z"
+    },
+    "bad key with spaces": {
+      "completedAt": "2026-11-03T10:00:00.000Z"
+    },
+    "sql-fundamentals/limiting-results": null
+  },
+  "challenges": {
+    "choose-columns": {
+      "solvedAt": "2026-11-03T10:00:00.000Z",
+      "attempts": 2,
+      "hintsUsed": 1,
+      "revealedSolution": false,
+      "revealedBeforeSolving": false
+    },
+    "three-newest": {
+      "solvedAt": null,
+      "attempts": -1,
+      "hintsUsed": 0,
+      "revealedSolution": false,
+      "revealedBeforeSolving": false
+    },
+    "distinct-genres": {
+      "solvedAt": "2026-11-03T10:00:00.000Z",
+      "attempts": 1,
+      "hintsUsed": 0
+    },
+    "price-summary": {
+      "solvedAt": "yesterday",
+      "attempts": 1,
+      "hintsUsed": 0,
+      "revealedSolution": false,
+      "revealedBeforeSolving": false
+    },
+    "price-bands": {
+      "solvedAt": null,
+      "attempts": 1.5,
+      "hintsUsed": 0,
+      "revealedSolution": false,
+      "revealedBeforeSolving": false
+    },
+    "challenge-that-no-longer-exists": {
+      "solvedAt": "2026-11-02T10:00:00.000Z",
+      "attempts": 1,
+      "hintsUsed": 0,
+      "revealedSolution": false,
+      "revealedBeforeSolving": false
+    }
+  },
+  "quizzes": {
+    "select-fundamentals": {
+      "bestScore": 3,
+      "lastScore": 3,
+      "total": 5,
+      "attempts": 1,
+      "lastTakenAt": "2026-11-03T12:00:00.000Z"
+    },
+    "aggregates-and-joins": {
+      "bestScore": 6,
+      "lastScore": 2,
+      "total": 5,
+      "attempts": 1,
+      "lastTakenAt": "2026-11-03T10:00:00.000Z"
+    },
+    "advanced-queries": {
+      "bestScore": 0,
+      "lastScore": 0,
+      "total": 0,
+      "attempts": 1,
+      "lastTakenAt": "2026-11-03T10:00:00.000Z"
+    }
+  },
+  "activity": {
+    "2026-11-03": 2,
+    "2026-11-02": 1,
+    "2026-11-01": 0,
+    "2026-10-31": -3,
+    "2026-10-30": 1.5,
+    "not-a-day": 4,
+    "2026-10-29": "2",
+    "2026-10-28": 2000000
+  },
+  "recent": [
+    {
+      "kind": "challenge",
+      "id": "choose-columns",
+      "at": "2026-11-03T10:00:00.000Z"
+    },
+    {
+      "kind": "video",
+      "id": "choose-columns",
+      "at": "2026-11-03T10:00:00.000Z"
+    },
+    {
+      "kind": "lesson",
+      "id": "../../etc/passwd",
+      "at": "2026-11-03T10:00:00.000Z"
+    },
+    {
+      "kind": "quiz",
+      "id": "select-fundamentals",
+      "at": "2026-11-03T12:00:00.000Z",
+      "detail": "3/5"
+    },
+    {
+      "kind": "quiz",
+      "id": "advanced-queries",
+      "at": "2026-11-03T10:00:00.000Z",
+      "detail": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+    },
+    {
+      "kind": "lesson",
+      "id": "sql-fundamentals/what-is-sql",
+      "at": "later"
+    },
+    "not an object"
+  ]
+}

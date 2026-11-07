@@ -6,6 +6,7 @@ import { Button } from '../components/ui/Button.tsx'
 import { Card } from '../components/ui/Card.tsx'
 import { ConfirmDialog } from '../components/ui/ConfirmDialog.tsx'
 import { PageHeader } from '../components/ui/PageHeader.tsx'
+import { reloadPathProgress } from '../features/paths/pathStore.ts'
 import type { ProgressData } from '../features/progress/progressModel.ts'
 import {
   exportProgress,
@@ -123,6 +124,7 @@ export function SettingsPage() {
     } else {
       const cleared = clearAllStored()
       reloadProgress()
+      reloadPathProgress()
       applyTheme(DEFAULT_THEME)
       setTheme(DEFAULT_THEME)
       setMessage(cleared ? 'All saved data was deleted.' : 'This browser is blocking storage, so SQL Learner has nothing saved here.')

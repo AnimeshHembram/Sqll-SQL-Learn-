@@ -8,6 +8,7 @@ import { LearnPage } from '../pages/LearnPage.tsx'
 import { LessonPage } from '../pages/LessonPage.tsx'
 import { ModulePage } from '../pages/ModulePage.tsx'
 import { NotFoundPage } from '../pages/NotFoundPage.tsx'
+import { PathRoute, PathsRoute } from '../pages/PathsRoute.tsx'
 import { PracticeRoute } from '../pages/PracticeRoute.tsx'
 import { QuizPage } from '../pages/QuizPage.tsx'
 import { QuizzesPage } from '../pages/QuizzesPage.tsx'
@@ -35,6 +36,8 @@ export const router = createRouter([
           { path: NAV.learn.path, element: <LearnPage /> },
           { path: `${NAV.learn.path}/:moduleId`, element: <ModulePage /> },
           { path: `${NAV.learn.path}/:moduleId/:lessonId`, element: <LessonPage /> },
+          { path: NAV.paths.path, element: <PathsRoute /> },
+          { path: `${NAV.paths.path}/:pathId`, element: <PathRoute /> },
           { path: NAV.practice.path, element: <PracticeRoute /> },
           { path: NAV.challenges.path, element: <ChallengesPage /> },
           { path: `${NAV.challenges.path}/:challengeId`, element: <ChallengeRoute /> },

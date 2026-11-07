@@ -1,0 +1,37 @@
+.intro {
+  max-width: var(--reading-max-width);
+  margin-bottom: var(--space-8);
+}
+
+.current {
+  margin-bottom: var(--space-8);
+}
+
+.currentProgress {
+  display: grid;
+  gap: var(--space-2);
+  max-width: 28rem;
+  margin-bottom: var(--space-4);
+}
+
+.progressText {
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+
+.sectionTitle {
+  margin-bottom: var(--space-4);
+  font-size: var(--text-xl);
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 17rem), 1fr));
+  gap: var(--space-4);
+}
