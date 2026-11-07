@@ -31,3 +31,22 @@ export function ChapterRoute() {
     </Suspense>
   )
 }
+
+const ProblemsPage = lazy(async () => ({ default: (await import('./ProblemsPage.tsx')).ProblemsPage }))
+const ProblemPage = lazy(async () => ({ default: (await import('./ProblemPage.tsx')).ProblemPage }))
+
+export function ProblemsRoute() {
+  return (
+    <Suspense fallback={loading}>
+      <ProblemsPage />
+    </Suspense>
+  )
+}
+
+export function ProblemRoute() {
+  return (
+    <Suspense fallback={loading}>
+      <ProblemPage />
+    </Suspense>
+  )
+}

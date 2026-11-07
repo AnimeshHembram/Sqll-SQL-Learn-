@@ -40,6 +40,9 @@ export interface PathProblemProgress {
   /** ISO timestamp of the first correct answer, or null while unsolved. */
   solvedAt: string | null
   attempts: number
+  /** The most hints shown in any visit. */
+  hintsUsed: number
+  revealedSolution: boolean
 }
 
 export interface PathProjectProgress {
@@ -151,6 +154,34 @@ export function recordChapterQuiz(record: PathRecord, chapterId: string, score: 
   return { ...record, quizzes: { ...record.quizzes, [chapterId]: next } }
 }
 
+const NO_PROBLEM_PROGRESS: PathProblemProgress = { solvedAt: null, attempts: 0, hintsUsed: 0, revealedSolution: false }
+
+/** Records a daily problem submission. The first solve date is kept; nothing is ever taken away. */
+export function recordProblemAttempt(record: PathRecord, problemId: string, correct: boolean, now: Date): PathRecord {
+  const current = record.problems[problemId] ?? NO_PROBLEM_PROGRESS
+  const next: PathProblemProgress = { ...current, attempts: current.attempts + 1, solvedAt: current.solvedAt ?? (correct ? now.toISOString() : null) }
+  return { ...record, problems: { ...record.problems, [problemId]: next } }
+}
+
+export function recordProblemHelp(record: PathRecord, problemId: string, help: { hintsUsed?: number; revealedSolution?: boolean }): PathRecord {
+  const current = record.problems[problemId] ?? NO_PROBLEM_PROGRESS
+  const next: PathProblemProgress = {
+    ...current,
+    hintsUsed: Math.max(current.hintsUsed, help.hintsUsed ?? 0),
+    revealedSolution: current.revealedSolution || Boolean(help.revealedSolution),
+  }
+  return { ...record, problems: { ...record.problems, [problemId]: next } }
+}
+
+/** Adds badges that are not in the record yet. Earned badges are never removed or re-dated. */
+export function recordBadges(record: PathRecord, badgeIds: readonly string[], now: Date): PathRecord {
+  const missing = badgeIds.filter((id) => isId(id) && !record.badges[id])
+  if (missing.length === 0) return record
+  const badges = { ...record.badges }
+  for (const id of missing) badges[id] = { earnedAt: now.toISOString() }
+  return { ...record, badges }
+}
+
 /** Marks a chapter complete. The first completion date is kept. */
 export function recordChapterComplete(record: PathRecord, chapterId: string, now: Date): PathRecord {
   if (record.chapters[chapterId]) return record
@@ -226,7 +257,8 @@ function readProblem(value: unknown): PathProblemProgress | null {
   const attempts = count(value.attempts)
   const solvedAt = value.solvedAt === null ? null : isTimestamp(value.solvedAt) ? value.solvedAt : undefined
   if (attempts === null || solvedAt === undefined) return null
-  return { solvedAt, attempts }
+  // hintsUsed and revealedSolution were added in Stage 3; older entries read as none used.
+  return { solvedAt, attempts, hintsUsed: count(value.hintsUsed) ?? 0, revealedSolution: value.revealedSolution === true }
 }
 
 function readProject(value: unknown): PathProjectProgress | null {

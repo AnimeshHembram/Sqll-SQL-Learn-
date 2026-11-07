@@ -1,8 +1,7 @@
 import { useCallback, useRef, useState } from 'react'
-import type { PathExercise } from '../../content/types.ts'
+import type { ContentChallenge } from '../../content/types.ts'
 import { updateChallengeSession, useChallengeSession } from '../../features/challenges/challengeSession.ts'
 import type { Feedback } from '../../features/challenges/evaluate.ts'
-import type { PathExerciseProgress } from '../../features/paths/pathModel.ts'
 import {
   recordPathExerciseHints,
   recordPathExerciseSolutionRevealed,
@@ -27,11 +26,20 @@ type Outcome =
   | { kind: 'engine-error'; text: string }
   | { kind: 'message'; text: string }
 
+/** Where the card saves what the learner does. Chapter exercises and daily problems save to different parts of the path record. */
+export interface ExerciseRecorder {
+  submitted: (correct: boolean) => void
+  hintsShown: (count: number) => void
+  solutionRevealed: () => void
+}
+
 interface ExerciseCardProps {
-  exercise: PathExercise
-  /** "Guided exercise 1", "Independent exercise 2". */
+  exercise: ContentChallenge & { pathId: string }
+  /** "Guided exercise 1", "Independent exercise 2", "Day 7". */
   label: string
-  saved: PathExerciseProgress | undefined
+  saved: { solvedAt: string | null } | undefined
+  /** Defaults to saving as a chapter exercise in the path record. */
+  recorder?: ExerciseRecorder
   /** Column names per table, for autocompletion. */
   schema: Record<string, string[]>
   engineFailed: boolean
@@ -42,7 +50,12 @@ interface ExerciseCardProps {
  * like challenges (against the reference query, never shown until asked for),
  * and the result is saved in the exercise's own path record.
  */
-export function ExerciseCard({ exercise, label, saved, schema, engineFailed }: ExerciseCardProps) {
+export function ExerciseCard({ exercise, label, saved, recorder, schema, engineFailed }: ExerciseCardProps) {
+  const save: ExerciseRecorder = recorder ?? {
+    submitted: (correct) => recordPathExerciseSubmission(exercise.pathId, exercise.id, correct),
+    hintsShown: (count) => recordPathExerciseHints(exercise.pathId, exercise.id, count),
+    solutionRevealed: () => recordPathExerciseSolutionRevealed(exercise.pathId, exercise.id),
+  }
   const session = useChallengeSession(exercise.id)
   const sql = session.draft ?? exercise.starterSql
   const [outcome, setOutcome] = useState<Outcome | null>(null)
@@ -80,7 +93,7 @@ export function ExerciseCard({ exercise, label, saved, schema, engineFailed }: E
           submissions: current.submissions + 1,
           solved: current.solved || feedback.kind === 'correct',
         }))
-        recordPathExerciseSubmission(exercise.pathId, exercise.id, feedback.kind === 'correct')
+        save.submitted(feedback.kind === 'correct')
         setOutcome({ kind: 'submission', feedback, result })
       }
     } catch (error) {
@@ -164,7 +177,7 @@ export function ExerciseCard({ exercise, label, saved, schema, engineFailed }: E
         onShowNext={() => {
           const hintsShown = Math.min(session.hintsShown + 1, exercise.hints.length)
           updateChallengeSession(exercise.id, () => ({ hintsShown }))
-          recordPathExerciseHints(exercise.pathId, exercise.id, hintsShown)
+          save.hintsShown(hintsShown)
         }}
       />
       <SolutionPanel
@@ -174,7 +187,7 @@ export function ExerciseCard({ exercise, label, saved, schema, engineFailed }: E
         solved={session.solved || solvedBefore}
         onReveal={() => {
           updateChallengeSession(exercise.id, () => ({ revealed: true }))
-          recordPathExerciseSolutionRevealed(exercise.pathId, exercise.id)
+          save.solutionRevealed()
         }}
       />
     </section>

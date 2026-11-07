@@ -16,4 +16,5 @@ declare module 'virtual:sql-learner-path-content' {
   export const pathModules: unknown
   export const pathExercises: unknown
   export const pathQuizzes: unknown
+  export const pathProblems: unknown
 }

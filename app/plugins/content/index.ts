@@ -59,6 +59,7 @@ export function loadAllContent({ dir, datasetsDir, challengesDir, quizzesDir, pa
     pathModules: paths.modules,
     pathExercises: paths.exercises,
     pathQuizzes: paths.quizzes,
+    pathProblems: paths.problems,
     errors: [...content.errors, ...challenges.errors, ...quizzes.errors, ...paths.errors],
     files: [...new Set([...content.files, ...challenges.files, ...quizzes.files, ...paths.files])],
   }
@@ -107,7 +108,7 @@ export function contentPlugin(options: ContentPluginOptions): Plugin {
 
     load(id) {
       if (id !== RESOLVED_ID && id !== RESOLVED_SOLUTIONS_ID && id !== RESOLVED_PATH_ID) return undefined
-      const { modules, challenges, solutions, quizzes, pathModules, pathExercises, pathQuizzes, errors, files } = loadAllContent(options)
+      const { modules, challenges, solutions, quizzes, pathModules, pathExercises, pathQuizzes, pathProblems, errors, files } = loadAllContent(options)
       for (const file of files) this.addWatchFile(file)
       lastLoadFailed = errors.length > 0
       if (lastLoadFailed) this.error(formatErrors(errors))
@@ -117,6 +118,7 @@ export function contentPlugin(options: ContentPluginOptions): Plugin {
           `export const pathModules = ${JSON.stringify(pathModules)};`,
           `export const pathExercises = ${JSON.stringify(pathExercises)};`,
           `export const pathQuizzes = ${JSON.stringify(pathQuizzes)};`,
+          `export const pathProblems = ${JSON.stringify(pathProblems)};`,
         ].join('\n')
       }
       return [

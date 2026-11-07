@@ -147,6 +147,19 @@ try {
     assert.notEqual(await exercise.locator('[data-feedback]').getAttribute('data-feedback'), 'correct', 'the starter query is not accepted')
   })
 
+  await check('daily problems: the dashboard and a problem open from disk, and an answer is checked', async () => {
+    await page.goto(`${appUrl}#/paths/data-analyst/problems`)
+    await page.waitForFunction(() => document.body.innerText.includes('All 365 days'))
+    await page.goto(`${appUrl}#/paths/data-analyst/problems/2`)
+    const card = page.locator('[data-exercise="da-day-002"]')
+    await card.locator('.cm-content').click()
+    await page.keyboard.press('ControlOrMeta+A')
+    await page.keyboard.press('Delete')
+    await page.keyboard.insertText("SELECT title, price FROM books WHERE genre = 'Mystery'")
+    await card.getByRole('button', { name: 'Submit answer' }).click()
+    await card.locator('[data-feedback="correct"]').waitFor({ timeout: 15000 })
+  })
+
   await check('progress is saved: the lesson stays complete after reopening app/index.html', async () => {
     await page.goto(`${entryUrl}#/learn/sql-fundamentals/introduction-to-select`)
     await page.waitForURL(`${appUrl}#/learn/sql-fundamentals/introduction-to-select`)

@@ -5,7 +5,8 @@
  *
  * Covers the catalogue (eight paths, unique ids, every linked lesson exists),
  * independent per-path progress, checking stored data, and that planned
- * chapters never count towards progress.
+ * chapters never count towards progress. Daily problems: written days run from
+ * Day 1 without gaps, attempts, help, streaks and milestones.
  */
 
 import assert from 'node:assert/strict'
@@ -30,7 +31,24 @@ import {
   stageChapterCount,
   type PathContext,
 } from '../src/features/paths/pathSummary.ts'
-import { recordChapterComplete, recordChapterQuiz, recordExerciseAttempt, recordExerciseHelp } from '../src/features/paths/pathModel.ts'
+import {
+  recordBadges,
+  recordChapterComplete,
+  recordChapterQuiz,
+  recordExerciseAttempt,
+  recordExerciseHelp,
+  recordProblemAttempt,
+  recordProblemHelp,
+} from '../src/features/paths/pathModel.ts'
+import {
+  PROBLEM_DAYS,
+  PROBLEM_MILESTONES,
+  nextProblemDay,
+  problemState,
+  problemStreak,
+  reachedMilestones,
+  solvedCount,
+} from '../src/features/paths/problemSummary.ts'
 import { emptyProgress, lessonKey, type ProgressData } from '../src/features/progress/progressModel.ts'
 
 const root = fileURLToPath(new URL('..', import.meta.url))
@@ -98,7 +116,7 @@ test('choosing a path creates its record; switching never changes another path',
   data = updatePathRecord(data, 'data-analyst', (r) => ({
     ...r,
     chapters: { 'querying-a-table': { completedAt: day(2).toISOString() } },
-    problems: { 'day-1': { solvedAt: day(2).toISOString(), attempts: 2 } },
+    problems: { 'day-1': { solvedAt: day(2).toISOString(), attempts: 2, hintsUsed: 0, revealedSolution: false } },
     badges: { 'first-week': { earnedAt: day(3).toISOString() } },
   }))
   const analyst = data.paths['data-analyst']
@@ -140,7 +158,7 @@ test('saved path progress survives a save and load unchanged', () => {
     ...r,
     chapters: { 'querying-a-table': { completedAt: day(2).toISOString() } },
     quizzes: { 'querying-a-table': { bestScore: 4, lastScore: 3, total: 5, attempts: 2, lastTakenAt: day(2).toISOString() } },
-    problems: { 'day-1': { solvedAt: null, attempts: 1 } },
+    problems: { 'day-1': { solvedAt: null, attempts: 1, hintsUsed: 1, revealedSolution: false } },
     projects: { 'sales-performance-review': { startedAt: day(2).toISOString(), completedAt: null } },
     badges: { 'first-chapter': { earnedAt: day(2).toISOString() } },
   }))
@@ -172,7 +190,7 @@ test('damaged entries are dropped one by one, and the rest is kept', () => {
   assert.equal(record.lastSelectedAt, record.startedAt, 'a bad lastSelectedAt falls back to startedAt')
   assert.deepEqual(Object.keys(record.chapters), ['good'])
   assert.deepEqual(record.quizzes, {})
-  assert.deepEqual(record.problems, { p2: { solvedAt: null, attempts: 3 } })
+  assert.deepEqual(record.problems, { p2: { solvedAt: null, attempts: 3, hintsUsed: 0, revealedSolution: false } }, 'older entries without hint fields still load')
   assert.deepEqual(record.projects, {})
   assert.deepEqual(record.badges, {})
   assert.equal(parsed.paths['bad-record'], undefined)
@@ -329,4 +347,126 @@ test('the next step offers a written chapter page after the linked chapters are 
   const next = nextStep(analyst, linkedDone, context)
   assert.equal(next?.chapter.id, 'combining-tables')
   assert.equal(next?.lesson, undefined, 'a written chapter is opened on its own page')
+})
+
+// --- Daily problems ----------------------------------------------------------------
+
+test('written daily problems run from Day 1 without gaps, each with a unique id, hints and a solution', () => {
+  const problems = content.pathProblems.filter((problem) => problem.pathId === 'data-analyst')
+  assert.ok(problems.length >= 30, 'the first batch has at least 30 days')
+  assert.ok(problems.length <= PROBLEM_DAYS)
+  problems.forEach((problem, index) => {
+    assert.equal(problem.day, index + 1)
+    assert.equal(problem.id, `da-day-${String(index + 1).padStart(3, '0')}`)
+    assert.ok(problem.hints.length >= 2, `${problem.id} has hints`)
+    assert.ok(content.solutions[problem.id]?.sql, `${problem.id} has a solution`)
+    assert.ok(problem.objectives.length > 0, `${problem.id} has objectives`)
+  })
+  const ids = content.pathProblems.map((problem) => problem.id)
+  assert.equal(new Set(ids).size, ids.length)
+  const titles = problems.map((problem) => problem.title.toLowerCase())
+  assert.equal(new Set(titles).size, titles.length, 'no two days share a title')
+  for (const other of CAREER_PATHS.slice(1)) {
+    assert.equal(content.pathProblems.filter((problem) => problem.pathId === other.id).length, 0, `${other.id} has no problems yet`)
+  }
+})
+
+test('problem difficulty rises: the first week is beginner, nothing advanced before Day 15, nothing beginner after Day 20', () => {
+  const problems = content.pathProblems.filter((problem) => problem.pathId === 'data-analyst')
+  assert.ok(problems.slice(0, 7).every((problem) => problem.difficulty === 'beginner'))
+  assert.ok(problems.slice(0, 14).every((problem) => problem.difficulty !== 'advanced'))
+  assert.ok(problems.slice(20).every((problem) => problem.difficulty !== 'beginner'))
+})
+
+test('problem attempts, hints and revealed solutions are saved; solving keeps the first date', () => {
+  let record = selectPath(emptyPathProgress(), 'data-analyst', day(1)).paths['data-analyst']
+  assert.equal(problemState('p1', record), 'open')
+  assert.equal(problemState(undefined, record), 'unwritten')
+  record = recordProblemAttempt(record, 'p1', false, day(2))
+  assert.equal(problemState('p1', record), 'attempted')
+  record = recordProblemHelp(record, 'p1', { hintsUsed: 2 })
+  record = recordProblemHelp(record, 'p1', { hintsUsed: 1, revealedSolution: true })
+  record = recordProblemAttempt(record, 'p1', true, day(3))
+  record = recordProblemAttempt(record, 'p1', true, day(4))
+  assert.deepEqual(record.problems.p1, { solvedAt: day(3).toISOString(), attempts: 3, hintsUsed: 2, revealedSolution: true })
+  assert.equal(problemState('p1', record), 'solved')
+})
+
+test('missing days costs nothing: any day can be solved in any order and the next day is the first unsolved', () => {
+  const ids = ['d1', 'd2', 'd3', 'd4']
+  let record = selectPath(emptyPathProgress(), 'data-analyst', day(1)).paths['data-analyst']
+  assert.equal(nextProblemDay(ids, record), 1)
+  record = recordProblemAttempt(record, 'd3', true, day(2))
+  record = recordProblemAttempt(record, 'd1', true, day(9))
+  assert.equal(solvedCount(ids, record), 2)
+  assert.equal(nextProblemDay(ids, record), 2)
+  for (const id of ids) record = recordProblemAttempt(record, id, true, day(10))
+  assert.equal(nextProblemDay(ids, record), null)
+})
+
+test('the problem streak counts calendar days with a solved problem and survives until the end of the next day', () => {
+  const ids = ['d1', 'd2', 'd3', 'd4']
+  let record = selectPath(emptyPathProgress(), 'data-analyst', day(1)).paths['data-analyst']
+  record = recordProblemAttempt(record, 'd1', true, day(2, 9))
+  record = recordProblemAttempt(record, 'd2', true, day(2, 20))
+  record = recordProblemAttempt(record, 'd3', true, day(3))
+  record = recordProblemAttempt(record, 'd4', false, day(4))
+  assert.deepEqual(
+    { ...problemStreak(ids, record, day(4)) },
+    { current: 2, longest: 2, activeToday: false, activeDays: 2 },
+    'a failed attempt does not count, and yesterday still keeps the streak',
+  )
+  assert.equal(problemStreak(ids, record, day(6)).current, 0, 'a gap ends the current streak')
+  assert.equal(problemStreak(ids, record, day(6)).longest, 2, 'the longest streak is kept')
+  assert.equal(solvedCount(ids, record), 3, 'a broken streak takes nothing away')
+})
+
+test('milestones are reached by problems solved, and earned badges are never removed or re-dated', () => {
+  assert.deepEqual(reachedMilestones(0), [])
+  assert.deepEqual(reachedMilestones(7).map((m) => m.id), ['problems-1', 'problems-7'])
+  assert.equal(PROBLEM_MILESTONES.at(-1)?.solved, PROBLEM_DAYS)
+  let record = selectPath(emptyPathProgress(), 'data-analyst', day(1)).paths['data-analyst']
+  record = recordBadges(record, ['problems-1'], day(2))
+  const same = recordBadges(record, ['problems-1'], day(5))
+  assert.equal(same, record, 'nothing changes when every badge is already earned')
+  record = recordBadges(record, [], day(6))
+  assert.equal(record.badges['problems-1'].earnedAt, day(2).toISOString())
+  record = recordBadges(record, ['problems-1', 'problems-7'], day(7))
+  assert.equal(record.badges['problems-1'].earnedAt, day(2).toISOString())
+  assert.equal(record.badges['problems-7'].earnedAt, day(7).toISOString())
+})
+
+test('daily problem progress in one path never changes another path, and survives a save and load', () => {
+  let data = selectPath(selectPath(emptyPathProgress(), 'data-engineer', day(1)), 'data-analyst', day(1))
+  const engineer = data.paths['data-engineer']
+  data = updatePathRecord(data, 'data-analyst', (r) => recordBadges(recordProblemAttempt(r, 'da-day-001', true, day(2)), ['problems-1'], day(2)))
+  assert.deepEqual(data.paths['data-engineer'], engineer)
+  const loaded = parsePathProgress(JSON.parse(JSON.stringify(data)))
+  assert.deepEqual(loaded, data)
+})
+
+test('problem entries saved before hints were tracked still load, with no help recorded', () => {
+  const stage2 = {
+    version: 1,
+    activePathId: 'data-analyst',
+    paths: {
+      'data-analyst': {
+        startedAt: day(1).toISOString(),
+        lastSelectedAt: day(1).toISOString(),
+        chapters: {},
+        exercises: {},
+        quizzes: {},
+        problems: { 'da-day-001': { solvedAt: day(2).toISOString(), attempts: 1 } },
+        projects: {},
+        badges: {},
+      },
+    },
+  }
+  const parsed = parsePathProgress(stage2)
+  assert.deepEqual(parsed?.paths['data-analyst'].problems['da-day-001'], {
+    solvedAt: day(2).toISOString(),
+    attempts: 1,
+    hintsUsed: 0,
+    revealedSolution: false,
+  })
 })

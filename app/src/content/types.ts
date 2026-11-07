@@ -152,6 +152,13 @@ export interface PathExercise extends ContentChallenge {
   kind: ExerciseKind
 }
 
+/** One of a path's daily problems (Day 1 to 365). Checked exactly like a challenge. */
+export interface PathProblem extends ContentChallenge {
+  pathId: string
+  /** 1 to 365. */
+  day: number
+}
+
 /** A chapter's end-of-chapter quiz. Its id is the chapter id. */
 export interface PathQuiz extends ContentQuiz {
   pathId: string

@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react'
-import { useParams } from 'react-router'
+import { Link, useParams } from 'react-router'
 import { NAV } from '../app/navigation.ts'
 import { ChapterState } from '../components/paths/ChapterState.tsx'
 import { Roadmap } from '../components/paths/Roadmap.tsx'
@@ -10,9 +10,10 @@ import { PageHeader } from '../components/ui/PageHeader.tsx'
 import { ProgressBar } from '../components/ui/ProgressBar.tsx'
 import { lessonPath } from '../content/index.ts'
 import { PROBLEMS_PER_PATH, findPath } from '../content/paths/catalog.ts'
-import { chapterUrl, pathContext } from '../content/paths/chapters.ts'
+import { chapterUrl, pathContext, pathProblemList, problemsUrl } from '../content/paths/chapters.ts'
 import { choosePath, usePathProgress } from '../features/paths/pathStore.ts'
 import { nextStep, pathChapterCount } from '../features/paths/pathSummary.ts'
+import { solvedCount } from '../features/paths/problemSummary.ts'
 import { useProgress } from '../features/progress/progressStore.ts'
 import { NotFoundPage } from './NotFoundPage.tsx'
 import styles from './PathPage.module.css'
@@ -35,6 +36,8 @@ export function PathPage() {
   const chapters = pathChapterCount(path, progress, context)
   const next = nextStep(path, progress, context)
   const previous = paths.activePathId && !isCurrent ? findPath(paths.activePathId) : undefined
+  const problemIds = pathProblemList(path.id).map((problem) => problem.id)
+  const problemsSolved = solvedCount(problemIds, record)
 
   const select = () => {
     const saved = choosePath(path.id)
@@ -89,7 +92,15 @@ export function PathPage() {
         </div>
         <div>
           <dt>Daily problems</dt>
-          <dd>{PROBLEMS_PER_PATH} planned</dd>
+          <dd>
+            {problemIds.length > 0 ? (
+              <Link to={problemsUrl(path.id)}>
+                {problemIds.length} of {PROBLEMS_PER_PATH} written, {problemsSolved} solved
+              </Link>
+            ) : (
+              `${PROBLEMS_PER_PATH} planned`
+            )}
+          </dd>
         </div>
         <div>
           <dt>Projects</dt>

@@ -1,12 +1,12 @@
 {
-  "note": "Re-recorded after SQL Path Stage 2 added chapter content (previous baseline: Phase 0, 2026-11-07). Limits unchanged.",
-  "recordedAt": "2026-11-07T07:30:06.482Z",
+  "note": "Baseline sizes recorded from the build before Phase 0 changes, with the approved limits.",
+  "recordedAt": "2026-11-07T07:52:25.761Z",
   "node": "v22.23.4",
   "assets": {
     "index.js": {
-      "baselineBytes": 454375,
+      "baselineBytes": 459142,
       "limitPercent": 2,
-      "limitBytes": 463462
+      "limitBytes": 468324
     },
     "useSqlEngine.js": {
       "baselineBytes": 373761,
@@ -19,14 +19,14 @@
       "limitBytes": 9316
     },
     "_virtual_sql-learner-challenge-solutions.js": {
-      "baselineBytes": 26089,
+      "baselineBytes": 41734,
       "limitPercent": 5,
-      "limitBytes": 27393
+      "limitBytes": 43820
     },
     "sql.worker.js": {
-      "baselineBytes": 77963,
+      "baselineBytes": 93608,
       "limitPercent": 15,
-      "limitBytes": 89657
+      "limitBytes": 107649
     }
   },
   "allBaselineAssets": {
@@ -38,37 +38,45 @@
       "bytes": 2664,
       "gzipBytes": 795
     },
-    "ChapterPage.js": {
-      "bytes": 12874,
-      "gzipBytes": 4702
-    },
     "ChapterPage.css": {
-      "bytes": 3740,
-      "gzipBytes": 1027
+      "bytes": 2655,
+      "gzipBytes": 806
+    },
+    "ChapterPage.js": {
+      "bytes": 8643,
+      "gzipBytes": 3283
+    },
+    "ExerciseCard.css": {
+      "bytes": 1086,
+      "gzipBytes": 437
+    },
+    "ExerciseCard.js": {
+      "bytes": 4604,
+      "gzipBytes": 1904
     },
     "PageHeader.css": {
       "bytes": 3160,
       "gzipBytes": 981
     },
     "PageHeader.js": {
-      "bytes": 113172,
-      "gzipBytes": 37226
+      "bytes": 111203,
+      "gzipBytes": 36563
     },
     "PathPage.css": {
       "bytes": 5372,
       "gzipBytes": 1358
     },
     "PathPage.js": {
-      "bytes": 7692,
-      "gzipBytes": 2697
+      "bytes": 7871,
+      "gzipBytes": 2788
     },
     "PathsPage.css": {
       "bytes": 1989,
       "gzipBytes": 735
     },
     "PathsPage.js": {
-      "bytes": 3096,
-      "gzipBytes": 1203
+      "bytes": 3122,
+      "gzipBytes": 1230
     },
     "PracticePage.js": {
       "bytes": 5823,
@@ -78,45 +86,65 @@
       "bytes": 1117,
       "gzipBytes": 492
     },
+    "ProblemPage.css": {
+      "bytes": 1324,
+      "gzipBytes": 501
+    },
+    "ProblemPage.js": {
+      "bytes": 4253,
+      "gzipBytes": 1840
+    },
+    "ProblemsPage.js": {
+      "bytes": 6321,
+      "gzipBytes": 2258
+    },
+    "ProblemsPage.css": {
+      "bytes": 4571,
+      "gzipBytes": 1046
+    },
+    "SchemaExplorer.js": {
+      "bytes": 1727,
+      "gzipBytes": 712
+    },
     "SchemaExplorer.css": {
       "bytes": 1457,
       "gzipBytes": 547
     },
-    "SchemaExplorer.js": {
-      "bytes": 1727,
-      "gzipBytes": 713
-    },
     "_virtual_sql-learner-challenge-solutions.js": {
-      "bytes": 26089,
-      "gzipBytes": 6841
+      "bytes": 41734,
+      "gzipBytes": 10010
     },
     "challengeSession.js": {
-      "bytes": 4516,
-      "gzipBytes": 1886
+      "bytes": 4506,
+      "gzipBytes": 1882
     },
     "challengeSession.css": {
       "bytes": 2175,
       "gzipBytes": 620
     },
-    "index.js": {
-      "bytes": 454375,
-      "gzipBytes": 120811
+    "chapters.js": {
+      "bytes": 160898,
+      "gzipBytes": 36681
     },
     "index.css": {
       "bytes": 35870,
       "gzipBytes": 7023
     },
+    "index.js": {
+      "bytes": 459142,
+      "gzipBytes": 122193
+    },
     "pathSummary.js": {
-      "bytes": 132656,
-      "gzipBytes": 31236
+      "bytes": 1930,
+      "gzipBytes": 891
     },
     "sql-wasm-browser.wasm": {
       "bytes": 684897,
       "gzipBytes": 336340
     },
     "sql.worker.js": {
-      "bytes": 77963,
-      "gzipBytes": 25522
+      "bytes": 93608,
+      "gzipBytes": 28783
     },
     "useSqlEngine.css": {
       "bytes": 1448,
@@ -124,18 +152,18 @@
     },
     "useSqlEngine.js": {
       "bytes": 373761,
-      "gzipBytes": 121051
+      "gzipBytes": 121052
     }
   },
   "distTotal": {
-    "baselineBytes": 1975424,
+    "baselineBytes": 2056722,
     "limitPercent": 5,
-    "limitBytes": 2074195
+    "limitBytes": 2159558
   },
   "offlineIndexHtml": {
-    "baselineBytes": 2202199,
+    "baselineBytes": 2283098,
     "limitPercent": 3,
-    "limitBytes": 2268264
+    "limitBytes": 2351590
   },
   "offlineFiles": [
     "build-info.js",

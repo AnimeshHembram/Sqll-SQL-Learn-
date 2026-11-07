@@ -608,7 +608,7 @@ try {
     for (const label of ['Black', 'White', 'Purple', 'Original']) {
       await page.goto(`${base}/settings`)
       await page.getByRole('radio', { name: label }).check()
-      for (const url of ['/paths', '/paths/data-analyst']) {
+      for (const url of ['/paths', '/paths/data-analyst', '/paths/data-analyst/problems', '/paths/data-analyst/problems/1']) {
         await page.goto(`${base}${url}`)
         // The pages load on demand: measure the page itself, not the loading message.
         await page.locator('main h2').first().waitFor()
@@ -721,6 +721,73 @@ try {
     const chapter = page.locator('main li', { has: page.getByRole('heading', { level: 3, name: 'Combining tables with joins' }) })
     await chapter.getByText('Complete', { exact: true }).waitFor()
     assert.match(await page.locator('main').innerText(), /1 of 7 ready chapters complete/)
+  })
+
+  await check('daily problems: the dashboard shows 365 days, only written days open, and the path page links to it', async (page) => {
+    await page.goto(`${base}/paths/data-analyst`)
+    await page.getByRole('link', { name: /of 365 written, 0 solved/ }).click()
+    await page.getByRole('heading', { level: 1, name: 'Daily SQL problems' }).waitFor()
+    const days = page.locator('section[aria-labelledby="year-map"] ol > li')
+    assert.equal(await days.count(), 365, 'every day of the year is shown')
+    const written = await page.getByRole('link', { name: /^Day \d+: .*\. Not tried yet\.$/ }).count()
+    assert.ok(written >= 30, `the first batch is playable (${written})`)
+    assert.equal(await page.getByRole('link', { name: /^Day 365:/ }).count(), 0, 'an unwritten day is not a link')
+    assert.match(await page.locator('main').innerText(), /not written yet/i)
+    // Filters narrow the list.
+    await page.getByLabel('Topic').selectOption('Joins')
+    assert.match(await page.getByRole('status').filter({ hasText: /^Showing/ }).innerText(), /^Showing 5 of \d+ written problems\.$/)
+    // An unwritten day explains itself instead of failing.
+    await page.goto(`${base}/paths/data-analyst/problems/365`)
+    await page.getByRole('heading', { level: 1, name: 'Day 365 is not written yet' }).waitFor()
+    await page.goto(`${base}/paths/data-analyst/problems/400`)
+    await page.locator('main h1').filter({ hasText: /not found/i }).waitFor()
+  })
+
+  await check('daily problems: answers are really checked; attempts, hints, solutions, streak and milestone are saved in the path record', async (page) => {
+    await page.goto(`${base}/paths/data-analyst/problems`)
+    await page.getByRole('link', { name: 'Start: Day 1, Customer contact list' }).click()
+    await page.getByRole('heading', { level: 1, name: 'Day 1: Customer contact list' }).waitFor()
+    const card = page.locator('[data-exercise="da-day-001"]')
+    // The starter query is not accepted.
+    await card.getByRole('button', { name: 'Submit answer' }).click()
+    await card.locator('[data-feedback]').waitFor()
+    assert.notEqual(await card.locator('[data-feedback]').getAttribute('data-feedback'), 'correct')
+    await card.getByRole('button', { name: 'Show the first hint' }).click()
+    await card.locator('.cm-content').click()
+    await page.keyboard.press('ControlOrMeta+A')
+    await page.keyboard.press('Delete')
+    await page.keyboard.insertText('SELECT name, city FROM customers ORDER BY name')
+    await card.getByRole('button', { name: 'Submit answer' }).click()
+    await card.locator('[data-feedback="correct"]').waitFor()
+    await card.getByRole('button', { name: 'Compare with the solution' }).click()
+    await page.getByText(/Solved on .*\. You can keep practising/).waitFor()
+
+    const stored = await storedPaths(page)
+    const saved = stored.paths['data-analyst'].problems['da-day-001']
+    assert.equal(saved.attempts, 2)
+    assert.equal(saved.hintsUsed, 1)
+    assert.equal(saved.revealedSolution, true)
+    assert.ok(saved.solvedAt)
+    assert.ok(stored.paths['data-analyst'].badges['problems-1'], 'the first milestone is reached')
+    assert.equal(stored.activePathId, null, 'solving a problem does not change the current path')
+    const learn = await page.evaluate(() => JSON.parse(localStorage.getItem('sql-learner:progress:v1') ?? 'null'))
+    assert.equal(learn?.challenges?.['da-day-001'], undefined, 'problems are not saved as Challenges progress')
+
+    // Next day, then skip ahead: a missed day stays open and costs nothing.
+    const pager = page.getByRole('navigation', { name: 'Day navigation' })
+    await pager.getByRole('link', { name: /Day 2:/ }).click()
+    await page.getByRole('heading', { level: 1, name: /^Day 2:/ }).waitFor()
+    await page.goto(`${base}/paths/data-analyst/problems/10`)
+    await page.getByRole('heading', { level: 1, name: /^Day 10:/ }).waitFor()
+    await page.getByText(/There is no deadline/).waitFor()
+
+    await page.goto(`${base}/paths/data-analyst/problems`)
+    const main = page.locator('main')
+    await main.getByText('1 of', { exact: false }).first().waitFor()
+    assert.match(await main.innerText(), /Current streak\s*1 day/)
+    assert.match(await main.innerText(), /✓ First problem solved/)
+    await page.getByRole('link', { name: /^Day 1: Customer contact list\. Solved\.$/ }).waitFor()
+    await page.getByRole('link', { name: 'Continue: Day 2, Stock the mystery shelf' }).waitFor()
   })
 
   assert.deepEqual(errors, [], 'no console errors')

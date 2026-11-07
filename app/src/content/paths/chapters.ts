@@ -1,6 +1,6 @@
-import { pathExercises, pathModules, pathQuizzes } from 'virtual:sql-learner-path-content'
+import { pathExercises, pathModules, pathProblems, pathQuizzes } from 'virtual:sql-learner-path-content'
 import { lessonPath } from '../index.ts'
-import type { ContentLesson, ContentModule, PathExercise, PathQuiz } from '../types.ts'
+import type { ContentLesson, ContentModule, PathExercise, PathProblem, PathQuiz } from '../types.ts'
 import { pathUrl, type CareerPath, type PathChapter } from './catalog.ts'
 import type { PathRecord } from '../../features/paths/pathModel.ts'
 import type { PathContext } from '../../features/paths/pathSummary.ts'
@@ -14,6 +14,7 @@ import type { PathContext } from '../../features/paths/pathSummary.ts'
 const MODULES = pathModules as readonly ContentModule[]
 const EXERCISES = pathExercises as readonly PathExercise[]
 const QUIZZES = pathQuizzes as readonly PathQuiz[]
+const PROBLEMS = pathProblems as readonly PathProblem[]
 
 export function findChapterContent(pathId: string, chapterId: string): ContentLesson | undefined {
   return MODULES.find((module) => module.id === pathId)?.lessons.find((lesson) => lesson.id === chapterId)
@@ -46,4 +47,23 @@ export function chapterLink(path: CareerPath, chapter: PathChapter): string | un
   if (findChapterContent(path.id, chapter.id)) return chapterUrl(path.id, chapter.id)
   const first = chapter.lessons[0]
   return first ? lessonPath(first.moduleId, first.lessonId) : undefined
+}
+
+// --- Daily problems ----------------------------------------------------------------------
+
+/** A path's written daily problems, Day 1 first. Days run without gaps, so the list's length is the last written day. */
+export function pathProblemList(pathId: string): readonly PathProblem[] {
+  return PROBLEMS.filter((problem) => problem.pathId === pathId)
+}
+
+export function findProblem(pathId: string, day: number): PathProblem | undefined {
+  return PROBLEMS.find((problem) => problem.pathId === pathId && problem.day === day)
+}
+
+export function problemsUrl(pathId: string): string {
+  return `${pathUrl(pathId)}/problems`
+}
+
+export function problemUrl(pathId: string, day: number): string {
+  return `${problemsUrl(pathId)}/${day}`
 }

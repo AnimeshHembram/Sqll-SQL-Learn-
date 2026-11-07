@@ -6,13 +6,17 @@ import {
   parsePathProgress,
   recordChapterComplete,
   recordChapterQuiz,
+  recordBadges,
   recordExerciseAttempt,
   recordExerciseHelp,
+  recordProblemAttempt,
+  recordProblemHelp,
   selectPath,
   updatePathRecord,
   type PathProgressData,
   type PathRecord,
 } from './pathModel.ts'
+import { reachedMilestones } from './problemSummary.ts'
 
 /**
  * SQL Path progress, saved in this browser under its own versioned key and
@@ -95,4 +99,34 @@ export function recordPathChapterQuiz(pathId: string, chapterId: string, score: 
 
 export function completePathChapter(pathId: string, chapterId: string, now = new Date()): boolean {
   return commitToPath(pathId, (record) => recordChapterComplete(record, chapterId, now), now)
+}
+
+/**
+ * Records a daily problem submission and saves any milestone badge it reaches.
+ * `problemIds` are the path's written problems, so the solved count is exact.
+ */
+export function recordPathProblemSubmission(
+  pathId: string,
+  problemId: string,
+  correct: boolean,
+  problemIds: readonly string[],
+  now = new Date(),
+): boolean {
+  return commitToPath(
+    pathId,
+    (record) => {
+      const updated = recordProblemAttempt(record, problemId, correct, now)
+      const solved = problemIds.filter((id) => updated.problems[id]?.solvedAt).length
+      return recordBadges(updated, reachedMilestones(solved).map((milestone) => milestone.id), now)
+    },
+    now,
+  )
+}
+
+export function recordPathProblemHints(pathId: string, problemId: string, hintsUsed: number, now = new Date()): boolean {
+  return commitToPath(pathId, (record) => recordProblemHelp(record, problemId, { hintsUsed }), now)
+}
+
+export function recordPathProblemSolutionRevealed(pathId: string, problemId: string, now = new Date()): boolean {
+  return commitToPath(pathId, (record) => recordProblemHelp(record, problemId, { revealedSolution: true }), now)
 }
