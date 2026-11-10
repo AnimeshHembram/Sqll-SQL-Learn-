@@ -50,6 +50,7 @@ import {
   solvedCount,
 } from '../src/features/paths/problemSummary.ts'
 import { emptyProgress, lessonKey, type ProgressData } from '../src/features/progress/progressModel.ts'
+import { MAX_DRAFTS, MAX_DRAFT_LENGTH, parseDrafts, withDraft } from '../src/features/paths/pathDraftsModel.ts'
 
 const root = fileURLToPath(new URL('..', import.meta.url))
 const contentDir = path.join(root, 'src/content')
@@ -476,4 +477,84 @@ test('a daily problem whose data is written in the starter query loads with an e
   assert.ok(inline.length > 0, 'at least one problem uses only data from its starter query')
   for (const problem of inline) assert.match(problem.starterSql, /^WITH\b/i, `${problem.id} defines its data in the starter query`)
   assert.ok(content.challenges.every((challenge) => challenge.tables.length > 0), 'every challenge still names its tables')
+})
+
+// --- Stage 2 complete: the Data Analyst curriculum -------------------------------------
+
+test('every Data Analyst chapter beyond the Learn SQL foundations is written, in catalogue order', () => {
+  const analyst = CAREER_PATHS.find((p) => p.id === 'data-analyst')!
+  const catalogue = analyst.stages.flatMap((s) => s.chapters)
+  const ownChapters = catalogue.filter((c) => c.lessons.length === 0)
+  const module = content.pathModules.find((m) => m.id === 'data-analyst')!
+  assert.equal(ownChapters.length, 13, 'the catalogue lists 13 Data Analyst chapters of its own')
+  assert.deepEqual(module.lessons.map((l) => l.id), ownChapters.map((c) => c.id), 'all 13 are written, in roadmap order')
+  module.lessons.forEach((lesson, index) => assert.equal(lesson.order, index + 1, `${lesson.id} is chapter ${index + 1}`))
+  const levels = module.lessons.map((l) => ['beginner', 'intermediate', 'advanced'].indexOf(l.level))
+  assert.ok(levels.every((level, i) => i === 0 || level >= levels[i - 1]), 'chapter levels never step back down')
+})
+
+test('each Data Analyst chapter has 2 guided and 2 independent exercises and a 5-question quiz', () => {
+  const module = content.pathModules.find((m) => m.id === 'data-analyst')!
+  for (const lesson of module.lessons) {
+    const exercises = content.pathExercises.filter((e) => e.pathId === 'data-analyst' && e.chapterId === lesson.id)
+    assert.equal(exercises.filter((e) => e.kind === 'guided').length, 2, `${lesson.id}: guided exercises`)
+    assert.equal(exercises.filter((e) => e.kind === 'independent').length, 2, `${lesson.id}: independent exercises`)
+    const quiz = content.pathQuizzes.find((q) => q.pathId === 'data-analyst' && q.id === lesson.id)
+    assert.equal(quiz?.questions.length, 5, `${lesson.id}: quiz questions`)
+    assert.ok(lesson.objectives.length >= 3, `${lesson.id}: learning objectives`)
+  }
+})
+
+test('no chapter exercise repeats a challenge, a daily problem or another exercise', () => {
+  const titles = (items: readonly { title: string }[]) => items.map((i) => i.title.toLowerCase())
+  const exerciseTitles = titles(content.pathExercises)
+  assert.equal(new Set(exerciseTitles).size, exerciseTitles.length, 'exercise titles are unique')
+  const others = new Set([...titles(content.challenges), ...titles(content.pathProblems)])
+  for (const title of exerciseTitles) assert.ok(!others.has(title), `"${title}" is not also a challenge or daily problem`)
+  assert.ok(!content.pathExercises.some((e) => e.id === 'da-above-average-books'), 'the duplicate exercise was replaced')
+})
+
+test('a chapter completed before its exercises changed stays complete, and old exercise progress is kept', () => {
+  // A learner who finished "Subqueries and CTEs" while it still had the replaced exercise.
+  const stored = {
+    version: 1,
+    activePathId: 'data-analyst',
+    paths: {
+      'data-analyst': {
+        startedAt: day(1).toISOString(),
+        lastSelectedAt: day(1).toISOString(),
+        chapters: { 'subqueries-and-ctes': { completedAt: day(3).toISOString() } },
+        exercises: { 'da-above-average-books': { solvedAt: day(2).toISOString(), attempts: 1, hintsUsed: 0, revealedSolution: false } },
+        quizzes: {},
+        problems: {},
+        projects: {},
+        badges: {},
+      },
+    },
+  }
+  const record = parsePathProgress(stored)!.paths['data-analyst']
+  assert.ok(record.exercises['da-above-average-books'], 'saved exercise progress is not discarded')
+  const analyst = CAREER_PATHS.find((p) => p.id === 'data-analyst')!
+  const chapter = analyst.stages.flatMap((s) => s.chapters).find((c) => c.id === 'subqueries-and-ctes')!
+  const context: PathContext = {
+    record,
+    isWritten: () => true,
+    exerciseIds: (id) => content.pathExercises.filter((e) => e.chapterId === id).map((e) => e.id),
+    quizSize: () => 5,
+  }
+  assert.equal(chapterStatus(chapter, emptyProgress(), context).state, 'complete')
+})
+
+test('saved exercise drafts are validated, removed when back to the starter query, and capped', () => {
+  assert.deepEqual(parseDrafts(null), {})
+  assert.deepEqual(parseDrafts({ a: { sql: 'SELECT 1', savedAt: 5 }, b: { sql: 3, savedAt: 5 }, c: 'x', d: { sql: 'x'.repeat(MAX_DRAFT_LENGTH + 1), savedAt: 1 } }), {
+    a: { sql: 'SELECT 1', savedAt: 5 },
+  })
+  let drafts = withDraft({}, 'e1', 'SELECT 1', 10)
+  assert.deepEqual(drafts, { e1: { sql: 'SELECT 1', savedAt: 10 } })
+  drafts = withDraft(drafts, 'e1', null, 11)
+  assert.deepEqual(drafts, {}, 'resetting to the starter query forgets the draft')
+  for (let i = 0; i < MAX_DRAFTS + 5; i++) drafts = withDraft(drafts, `x${i}`, 'SELECT 1', i)
+  assert.equal(Object.keys(drafts).length, MAX_DRAFTS)
+  assert.ok(!('x0' in drafts) && 'x204' in drafts, 'the oldest drafts are dropped first')
 })

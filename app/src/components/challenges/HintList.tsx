@@ -10,10 +10,12 @@ interface HintListProps {
   /** How many hints are visible. */
   shown: number
   onShowNext: () => void
+  /** Heading level of the "Hints" title: 2 on its own page, deeper inside an exercise. */
+  headingLevel?: 2 | 3 | 4
 }
 
-/** Hints revealed one at a time, from a gentle nudge to almost the answer. Counted for this visit only. */
-export function HintList({ hints, shown, onShowNext }: HintListProps) {
+/** Hints revealed one at a time, from a gentle nudge to almost the answer. Shown hints are counted in the learner's progress where the page saves it. */
+export function HintList({ hints, shown, onShowNext, headingLevel = 2 }: HintListProps) {
   const visible = hints.slice(0, shown)
   const allShown = shown >= hints.length
   const lastHintRef = useRef<HTMLLIElement>(null)
@@ -21,7 +23,7 @@ export function HintList({ hints, shown, onShowNext }: HintListProps) {
   useFocusWhenDone(allShown, lastHintRef)
 
   return (
-    <Card title="Hints" description={`Hints used: ${shown} of ${hints.length}. Each hint gives away a little more.`}>
+    <Card title="Hints" headingLevel={headingLevel} description={`Hints used: ${shown} of ${hints.length}. Each hint gives away a little more.`}>
       {visible.length > 0 && (
         <ol className={styles.list}>
           {visible.map((hint, index) => (

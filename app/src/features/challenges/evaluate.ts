@@ -162,7 +162,7 @@ export function evaluateRun(learner: RunOutcome, reference: RunOutcome, config: 
       kind: 'incorrect-output',
       title: 'Submit a single query.',
       details: [
-        `Your SQL contains ${learner.statements.length} statements. A challenge answer is one query that returns the requested result.`,
+        `Your SQL contains ${learner.statements.length} statements. An answer is one query that returns the requested result.`,
         'Remove the extra statements (or the extra semicolons between them) and submit again.',
       ],
     }
@@ -173,7 +173,7 @@ export function evaluateRun(learner: RunOutcome, reference: RunOutcome, config: 
     return {
       kind: 'incorrect-output',
       title: 'Your SQL ran but did not return a result table.',
-      details: ['A challenge answer must be a query that returns rows, usually starting with SELECT or WITH.'],
+      details: ['An answer must be a query that returns rows, usually starting with SELECT or WITH.'],
     }
   }
 
@@ -240,7 +240,7 @@ export function compareResults(expected: RunTable, actual: RunTable, config: Eva
       details: [
         config.orderMatters
           ? 'Every row and value matches, in the required order.'
-          : 'Every row and value matches. Row order did not matter for this challenge.',
+          : 'Every row and value matches. Row order did not matter for this task.',
       ],
     }
   }

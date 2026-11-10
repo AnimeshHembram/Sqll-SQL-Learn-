@@ -139,6 +139,7 @@ function ProblemView({ path, problem, problems }: { path: CareerPath; problem: P
       <ExerciseCard
         exercise={problem}
         label={`Day ${problem.day}`}
+        headingLevel={2}
         saved={saved}
         schema={schema}
         engineFailed={engine.status === 'failed'}

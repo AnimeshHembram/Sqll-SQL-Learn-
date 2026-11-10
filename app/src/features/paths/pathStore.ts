@@ -17,6 +17,7 @@ import {
   type PathRecord,
 } from './pathModel.ts'
 import { reachedMilestones } from './problemSummary.ts'
+import { reloadDrafts } from './pathDrafts.ts'
 
 /**
  * SQL Path progress, saved in this browser under its own versioned key and
@@ -40,6 +41,8 @@ function notify() {
 /** Re-reads saved path progress, for example after another tab changed it or saved data was cleared. */
 export function reloadPathProgress(): void {
   cache = load()
+  // Saved drafts are re-read too, so "Delete all saved data" also forgets them in this tab.
+  reloadDrafts()
   notify()
 }
 

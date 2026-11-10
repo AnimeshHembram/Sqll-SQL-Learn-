@@ -147,6 +147,17 @@ try {
     assert.notEqual(await exercise.locator('[data-feedback]').getAttribute('data-feedback'), 'correct', 'the starter query is not accepted')
   })
 
+  await check('chapters: a new Data Analyst chapter opens from disk and checks a window-function answer', async () => {
+    await page.goto(`${appUrl}#/paths/data-analyst/window-functions`)
+    const card = page.locator('[data-exercise="da-books-oldest-first"]')
+    await card.locator('.cm-content').click()
+    await page.keyboard.press('ControlOrMeta+A')
+    await page.keyboard.press('Delete')
+    await page.keyboard.insertText('SELECT title, year, ROW_NUMBER() OVER (ORDER BY year) AS position FROM books ORDER BY position')
+    await card.getByRole('button', { name: 'Submit answer' }).click()
+    await card.locator('[data-feedback="correct"]').waitFor({ timeout: 15000 })
+  })
+
   await check('daily problems: the dashboard and a problem open from disk, and an answer is checked', async () => {
     await page.goto(`${appUrl}#/paths/data-analyst/problems`)
     await page.waitForFunction(() => document.body.innerText.includes('All 365 days'))

@@ -545,11 +545,17 @@ try {
     await page.evaluate((progress) => localStorage.setItem('sql-learner:progress:v1', JSON.stringify(progress)), lessonsDone(...FUNDAMENTALS, 'summarising-data/counting-rows'))
     await page.reload()
     const main = page.locator('main')
-    await main.getByText('1 of 7 ready chapters complete', { exact: true }).first().waitFor()
+    // Every Data Analyst chapter is written now: 2 taught by Learn SQL lessons and 13 chapter pages.
+    await main.getByText('1 of 15 ready chapters complete', { exact: true }).first().waitFor()
     const chapter = (title) => main.locator('li', { has: page.getByRole('heading', { level: 3, name: title, exact: true }) })
     assert.match(await chapter('Querying a table').innerText(), /Complete/)
     assert.match(await chapter('Summarising data').innerText(), /1 of 4 lessons done/)
-    const planned = chapter('Revenue and order metrics')
+    await chapter('Reviewing an analysis query').getByRole('link', { name: 'Reviewing an analysis query' }).waitFor()
+    assert.doesNotMatch(await chapter('Revenue and order metrics').innerText(), /Planned/)
+
+    // A path whose chapters are not written yet labels them planned, without links, outside every total.
+    await page.goto(`${base}/paths/data-engineer`)
+    const planned = chapter('Creating tables')
     assert.match(await planned.innerText(), /Planned/)
     assert.match(await planned.innerText(), /does not count towards your progress/)
     assert.equal(await planned.getByRole('link').count(), 0, 'a planned chapter has no link')
@@ -720,7 +726,50 @@ try {
     await page.goto(`${base}/paths/data-analyst`)
     const chapter = page.locator('main li', { has: page.getByRole('heading', { level: 3, name: 'Combining tables with joins' }) })
     await chapter.getByText('Complete', { exact: true }).waitFor()
-    assert.match(await page.locator('main').innerText(), /1 of 7 ready chapters complete/)
+    assert.match(await page.locator('main').innerText(), /1 of 15 ready chapters complete/)
+  })
+
+  await check('chapters: all 13 Data Analyst chapters open with examples, 4 exercises and a quiz', async (page) => {
+    const ids = ['combining-tables', 'conditional-logic', 'dates-and-time', 'subqueries-and-ctes', 'null-handling', 'revenue-metrics', 'funnels',
+      'cohorts-retention', 'window-functions', 'running-totals', 'top-n-per-group', 'data-quality-checks', 'query-review']
+    for (const [index, id] of ids.entries()) {
+      await page.goto(`${base}/paths/data-analyst/${id}`)
+      await page.locator('[data-exercise]').first().waitFor()
+      assert.equal(await page.locator('[data-exercise]').count(), 4, `${id} has 4 exercises`)
+      assert.equal(await page.locator('section[aria-labelledby="chapter-quiz"]').count(), 1, `${id} has a quiz`)
+      assert.match(await page.locator('main').innerText(), new RegExp(`Chapter ${index + 3} of 15`), `${id} is in roadmap order`)
+      // Heading outline: h1 page, h2 sections, h3 exercise titles, h4 for the cards inside an exercise.
+      const levels = await page.locator('[data-exercise]').first().evaluate((el) => [...el.querySelectorAll('h1,h2,h3,h4,h5,h6')].map((h) => Number(h.tagName[1])))
+      assert.equal(levels[0], 3, `${id}: exercise title is h3`)
+      assert.ok(levels.slice(1).every((level) => level === 4), `${id}: nothing inside an exercise jumps above or skips below h4 (${levels})`)
+    }
+  })
+
+  await check('chapters: an exercise keeps its draft and hints after leaving the page and reloading', async (page) => {
+    await page.goto(`${base}/paths/data-analyst/revenue-metrics`)
+    const card = page.locator('[data-exercise="da-average-selling-price"]')
+    await card.getByRole('button', { name: 'Show the first hint' }).click()
+    await card.locator('.cm-content').click()
+    await page.keyboard.press('ControlOrMeta+A')
+    await page.keyboard.press('Delete')
+    await page.keyboard.insertText('SELECT SUM(oi.quantity) AS units -- my draft')
+    await page.goto(`${base}/paths/data-analyst`)
+    await page.reload()
+    await page.goto(`${base}/paths/data-analyst/revenue-metrics`)
+    const again = page.locator('[data-exercise="da-average-selling-price"]')
+    await again.locator('.cm-content').filter({ hasText: '-- my draft' }).waitFor()
+    await again.getByRole('button', { name: 'Show hint 2 of 3' }).waitFor()
+    assert.equal(await again.getByText('Hint 1', { exact: true }).count(), 1, 'the shown hint is still shown')
+    // Reset query returns to the starter query and forgets the saved draft.
+    await again.getByRole('button', { name: 'Reset query' }).click()
+    await page.reload()
+    const reset = page.locator('[data-exercise="da-average-selling-price"]')
+    await reset.locator('.cm-content').filter({ hasText: 'WHERE o.status' }).waitFor()
+    assert.equal(await reset.locator('.cm-content').filter({ hasText: 'my draft' }).count(), 0)
+    // Wrong answers on a SQL Path exercise speak of an answer, not a challenge.
+    await reset.getByRole('button', { name: 'Submit answer' }).click()
+    await reset.locator('[data-feedback]').waitFor()
+    assert.doesNotMatch(await reset.innerText(), /challenge/i)
   })
 
   await check('daily problems: the dashboard shows 365 days, only written days open, and the path page links to it', async (page) => {

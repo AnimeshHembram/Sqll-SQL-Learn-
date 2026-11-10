@@ -2,6 +2,7 @@ import { useCallback, useRef, useState } from 'react'
 import type { ContentChallenge } from '../../content/types.ts'
 import { updateChallengeSession, useChallengeSession } from '../../features/challenges/challengeSession.ts'
 import type { Feedback } from '../../features/challenges/evaluate.ts'
+import { saveDraft, savedDraft } from '../../features/paths/pathDrafts.ts'
 import {
   recordPathExerciseHints,
   recordPathExerciseSolutionRevealed,
@@ -37,12 +38,15 @@ interface ExerciseCardProps {
   exercise: ContentChallenge & { pathId: string }
   /** "Guided exercise 1", "Independent exercise 2", "Day 7". */
   label: string
-  saved: { solvedAt: string | null } | undefined
+  /** What the path record holds for this exercise: restores hints and the revealed solution after a reload. */
+  saved: { solvedAt: string | null; attempts?: number; hintsUsed?: number; revealedSolution?: boolean } | undefined
   /** Defaults to saving as a chapter exercise in the path record. */
   recorder?: ExerciseRecorder
   /** Column names per table, for autocompletion. */
   schema: Record<string, string[]>
   engineFailed: boolean
+  /** Heading level of the exercise title: 3 under a section heading (chapters), 2 directly under the page title (daily problems). */
+  headingLevel?: 2 | 3
 }
 
 /**
@@ -50,14 +54,18 @@ interface ExerciseCardProps {
  * like challenges (against the reference query, never shown until asked for),
  * and the result is saved in the exercise's own path record.
  */
-export function ExerciseCard({ exercise, label, saved, recorder, schema, engineFailed }: ExerciseCardProps) {
+export function ExerciseCard({ exercise, label, saved, recorder, schema, engineFailed, headingLevel = 3 }: ExerciseCardProps) {
   const save: ExerciseRecorder = recorder ?? {
     submitted: (correct) => recordPathExerciseSubmission(exercise.pathId, exercise.id, correct),
     hintsShown: (count) => recordPathExerciseHints(exercise.pathId, exercise.id, count),
     solutionRevealed: () => recordPathExerciseSolutionRevealed(exercise.pathId, exercise.id),
   }
   const session = useChallengeSession(exercise.id)
-  const sql = session.draft ?? exercise.starterSql
+  // This visit's state comes first; otherwise what was saved earlier: the draft in this browser, hints and the solution in the path record.
+  const sql = session.draft ?? savedDraft(exercise.id) ?? exercise.starterSql
+  const hintsShown = Math.min(Math.max(session.hintsShown, saved?.hintsUsed ?? 0), exercise.hints.length)
+  const revealed = session.revealed || Boolean(saved?.revealedSolution)
+  const Heading = `h${headingLevel}` as const
   const [outcome, setOutcome] = useState<Outcome | null>(null)
   const [busy, setBusy] = useState<'run' | 'submit' | null>(null)
   const latest = useRef(0)
@@ -69,7 +77,11 @@ export function ExerciseCard({ exercise, label, saved, recorder, schema, engineF
   const solvedBefore = Boolean(saved?.solvedAt)
 
   const setSql = useCallback(
-    (value: string) => updateChallengeSession(exercise.id, () => ({ draft: value === exercise.starterSql ? null : value })),
+    (value: string) => {
+      const draft = value === exercise.starterSql ? null : value
+      updateChallengeSession(exercise.id, () => ({ draft }))
+      saveDraft(exercise.id, draft)
+    },
     [exercise.id, exercise.starterSql],
   )
 
@@ -105,6 +117,7 @@ export function ExerciseCard({ exercise, label, saved, recorder, schema, engineF
 
   const resetQuery = () => {
     updateChallengeSession(exercise.id, () => ({ draft: null }))
+    saveDraft(exercise.id, null)
     setOutcome(null)
     editorRef.current?.focus()
   }
@@ -114,9 +127,9 @@ export function ExerciseCard({ exercise, label, saved, recorder, schema, engineF
   return (
     <section className={styles.exercise} aria-labelledby={headingId} data-exercise={exercise.id}>
       <div className={styles.head}>
-        <h3 id={headingId} className={styles.title}>
+        <Heading id={headingId} className={styles.title}>
           <span className={styles.label}>{label}</span> {exercise.title}
-        </h3>
+        </Heading>
         {solvedBefore && <CompletionBadge label="Solved" />}
       </div>
       <Prose html={exercise.descriptionHtml} />
@@ -159,7 +172,7 @@ export function ExerciseCard({ exercise, label, saved, recorder, schema, engineF
             </Button>
           )}
         </div>
-        <Button variant="secondary" onClick={resetQuery} disabled={busy !== null || session.draft === null}>
+        <Button variant="secondary" onClick={resetQuery} disabled={busy !== null || sql === exercise.starterSql}>
           Reset query
         </Button>
       </div>
@@ -174,17 +187,19 @@ export function ExerciseCard({ exercise, label, saved, recorder, schema, engineF
 
       <HintList
         hints={exercise.hints}
-        shown={session.hintsShown}
+        shown={hintsShown}
+        headingLevel={headingLevel === 2 ? 3 : 4}
         onShowNext={() => {
-          const hintsShown = Math.min(session.hintsShown + 1, exercise.hints.length)
-          updateChallengeSession(exercise.id, () => ({ hintsShown }))
-          save.hintsShown(hintsShown)
+          const next = Math.min(hintsShown + 1, exercise.hints.length)
+          updateChallengeSession(exercise.id, () => ({ hintsShown: next }))
+          save.hintsShown(next)
         }}
       />
       <SolutionPanel
         challengeId={exercise.id}
-        unlocked={solvedBefore || session.submissions > 0 || session.hintsShown >= exercise.hints.length}
-        revealed={session.revealed}
+        unlocked={solvedBefore || session.submissions > 0 || (saved?.attempts ?? 0) > 0 || hintsShown >= exercise.hints.length}
+        revealed={revealed}
+        headingLevel={headingLevel === 2 ? 3 : 4}
         solved={session.solved || solvedBefore}
         onReveal={() => {
           updateChallengeSession(exercise.id, () => ({ revealed: true }))
