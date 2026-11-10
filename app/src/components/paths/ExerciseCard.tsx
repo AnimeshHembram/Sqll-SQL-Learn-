@@ -121,7 +121,8 @@ export function ExerciseCard({ exercise, label, saved, recorder, schema, engineF
       </div>
       <Prose html={exercise.descriptionHtml} />
       <p className={styles.rules}>
-        Tables: {exercise.tables.join(', ')}. {exercise.evaluation.orderMatters ? 'Row order must match the task.' : 'Any row order is accepted.'}{' '}
+        {exercise.tables.length > 0 ? `Tables: ${exercise.tables.join(', ')}.` : 'The data for this task is written in the starter query.'}{' '}
+        {exercise.evaluation.orderMatters ? 'Row order must match the task.' : 'Any row order is accepted.'}{' '}
         {exercise.evaluation.checkColumnNames ? 'Column names must match the task.' : 'Any column names are accepted.'}
       </p>
 

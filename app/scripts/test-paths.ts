@@ -470,3 +470,10 @@ test('problem entries saved before hints were tracked still load, with no help r
     revealedSolution: false,
   })
 })
+
+test('a daily problem whose data is written in the starter query loads with an empty table list', () => {
+  const inline = content.pathProblems.filter((problem) => problem.tables.length === 0)
+  assert.ok(inline.length > 0, 'at least one problem uses only data from its starter query')
+  for (const problem of inline) assert.match(problem.starterSql, /^WITH\b/i, `${problem.id} defines its data in the starter query`)
+  assert.ok(content.challenges.every((challenge) => challenge.tables.length > 0), 'every challenge still names its tables')
+})

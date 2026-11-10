@@ -51,7 +51,8 @@ const FIELDS: Record<string, FieldSpec> = {
   module: { kind: 'id', optional: true },
   duration: { kind: 'positiveInteger' },
   dataset: { kind: 'id' },
-  tables: { kind: 'list' },
+  /** Dataset tables the task uses. Left out when all the data is written in the starter query. */
+  tables: { kind: 'list', optional: true },
   orderMatters: { kind: 'boolean' },
   checkColumnNames: { kind: 'boolean' },
   objectives: { kind: 'list' },
@@ -215,7 +216,7 @@ export function loadChallenges(
       moduleId: (fields.module as string | undefined) ?? null,
       durationMinutes: fields.duration as number,
       dataset: fields.dataset as string,
-      tables: fields.tables as string[],
+      tables: (fields.tables as string[] | undefined) ?? [],
       objectives: fields.objectives as string[],
       prerequisites: (fields.prerequisites as string[] | undefined) ?? [],
       descriptionHtml: toHtml(task.tokens as Token[], 'Task'),

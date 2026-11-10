@@ -1,6 +1,6 @@
 {
   "note": "Baseline sizes recorded from the build before Phase 0 changes, with the approved limits.",
-  "recordedAt": "2026-11-07T19:54:33.775Z",
+  "recordedAt": "2026-11-10T11:12:36.679Z",
   "node": "v22.23.4",
   "assets": {
     "index.js": {
@@ -19,40 +19,40 @@
       "limitBytes": 9316
     },
     "_virtual_sql-learner-challenge-solutions.js": {
-      "baselineBytes": 65889,
+      "baselineBytes": 95059,
       "limitPercent": 5,
-      "limitBytes": 69183
+      "limitBytes": 99811
     },
     "sql.worker.js": {
-      "baselineBytes": 117763,
+      "baselineBytes": 146933,
       "limitPercent": 15,
-      "limitBytes": 135427
+      "limitBytes": 168972
     }
   },
   "allBaselineAssets": {
+    "ChallengePage.js": {
+      "bytes": 8873,
+      "gzipBytes": 3297
+    },
     "ChallengePage.css": {
       "bytes": 2664,
       "gzipBytes": 795
-    },
-    "ChallengePage.js": {
-      "bytes": 8873,
-      "gzipBytes": 3293
-    },
-    "ChapterPage.js": {
-      "bytes": 8643,
-      "gzipBytes": 3285
     },
     "ChapterPage.css": {
       "bytes": 2655,
       "gzipBytes": 806
     },
-    "ExerciseCard.js": {
-      "bytes": 4604,
-      "gzipBytes": 1905
+    "ChapterPage.js": {
+      "bytes": 8643,
+      "gzipBytes": 3282
     },
     "ExerciseCard.css": {
       "bytes": 1086,
       "gzipBytes": 437
+    },
+    "ExerciseCard.js": {
+      "bytes": 4682,
+      "gzipBytes": 1935
     },
     "PageHeader.css": {
       "bytes": 3160,
@@ -68,7 +68,7 @@
     },
     "PathPage.js": {
       "bytes": 7871,
-      "gzipBytes": 2787
+      "gzipBytes": 2786
     },
     "PathsPage.css": {
       "bytes": 1989,
@@ -76,11 +76,11 @@
     },
     "PathsPage.js": {
       "bytes": 3122,
-      "gzipBytes": 1230
+      "gzipBytes": 1229
     },
     "PracticePage.js": {
       "bytes": 5823,
-      "gzipBytes": 2374
+      "gzipBytes": 2373
     },
     "PracticePage.css": {
       "bytes": 1117,
@@ -92,15 +92,15 @@
     },
     "ProblemPage.js": {
       "bytes": 4253,
-      "gzipBytes": 1842
+      "gzipBytes": 1839
+    },
+    "ProblemsPage.js": {
+      "bytes": 6321,
+      "gzipBytes": 2256
     },
     "ProblemsPage.css": {
       "bytes": 4571,
       "gzipBytes": 1046
-    },
-    "ProblemsPage.js": {
-      "bytes": 6321,
-      "gzipBytes": 2258
     },
     "SchemaExplorer.js": {
       "bytes": 1727,
@@ -111,24 +111,24 @@
       "gzipBytes": 547
     },
     "_virtual_sql-learner-challenge-solutions.js": {
-      "bytes": 65889,
-      "gzipBytes": 15251
+      "bytes": 95059,
+      "gzipBytes": 21535
     },
     "challengeSession.js": {
       "bytes": 4506,
-      "gzipBytes": 1883
+      "gzipBytes": 1881
     },
     "challengeSession.css": {
       "bytes": 2175,
       "gzipBytes": 620
     },
     "chapters.js": {
-      "bytes": 198297,
-      "gzipBytes": 44363
+      "bytes": 239984,
+      "gzipBytes": 52898
     },
     "index.js": {
       "bytes": 459142,
-      "gzipBytes": 122186
+      "gzipBytes": 122193
     },
     "index.css": {
       "bytes": 35870,
@@ -136,15 +136,15 @@
     },
     "pathSummary.js": {
       "bytes": 1930,
-      "gzipBytes": 893
+      "gzipBytes": 891
     },
     "sql-wasm-browser.wasm": {
       "bytes": 684897,
       "gzipBytes": 336340
     },
     "sql.worker.js": {
-      "bytes": 117763,
-      "gzipBytes": 34071
+      "bytes": 146933,
+      "gzipBytes": 40421
     },
     "useSqlEngine.css": {
       "bytes": 1448,
@@ -156,14 +156,14 @@
     }
   },
   "distTotal": {
-    "baselineBytes": 2142431,
+    "baselineBytes": 2242536,
     "limitPercent": 5,
-    "limitBytes": 2249552
+    "limitBytes": 2354662
   },
   "offlineIndexHtml": {
-    "baselineBytes": 2369093,
+    "baselineBytes": 2469613,
     "limitPercent": 3,
-    "limitBytes": 2440165
+    "limitBytes": 2543701
   },
   "offlineFiles": [
     "build-info.js",
