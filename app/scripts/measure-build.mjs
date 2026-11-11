@@ -11,6 +11,10 @@
  * "index-GJsZoOBg.js" and a later "index-Ab12Cd34.js" are the same output.
  * --write-budget refuses to replace an existing budget unless --force is given:
  * the budget is the approved baseline, recorded once before Phase 0 changes.
+ *
+ * Daily problems from Day 91 on (added after the baseline) are measured against
+ * scripts/content-budget.json instead, per 30-day chunk, and taken out of the
+ * dist/ and offline totals; see scripts/content-size.mjs.
  */
 
 import { existsSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs'
@@ -130,6 +134,27 @@ const budget = JSON.parse(readFileSync(budgetFile, 'utf8'))
 const failures = []
 const rows = []
 
+// Daily problems added after the baseline have their own budget (scripts/content-budget.json) and are
+// taken out of the dist/ and offline totals below. The limits in size-budget.json are unchanged.
+const contentBudgetFile = path.join(root, 'scripts', 'content-budget.json')
+let contentChunks = []
+if (existsSync(contentBudgetFile)) {
+  const contentBudget = JSON.parse(readFileSync(contentBudgetFile, 'utf8'))
+  const { measureContent } = await import('./content-size.mjs')
+  contentChunks = await measureContent(root, contentBudget.firstDay)
+  for (const chunk of contentChunks) {
+    const label = `content: days ${chunk.days.join('-')} (${chunk.problemCount} problems)`
+    const ok = chunk.chunkBytes <= contentBudget.chunkLimitBytes && chunk.solutionFile
+    rows.push(`${ok ? 'ok  ' : 'OVER'} ${label.padEnd(46)} ${kb(chunk.chunkBytes).padStart(10)}  limit ${kb(contentBudget.chunkLimitBytes)} (solutions ${kb(chunk.solutionFileBytes)}, page text ${kb(chunk.publicBytes)})`)
+    if (!chunk.solutionFile) failures.push(`${chunk.groupId} has no solution chunk in dist/assets`)
+    else if (!ok) failures.push(`${label} is ${chunk.chunkBytes} bytes, over its limit of ${contentBudget.chunkLimitBytes}`)
+  }
+}
+const distContentBytes = contentChunks.reduce((sum, chunk) => sum + chunk.chunkBytes, 0)
+const offlineContentBytes = contentChunks.reduce((sum, chunk) => sum + chunk.offlineBytes, 0)
+const distAppBytes = current.distTotalBytes - distContentBytes
+const offlineAppBytes = current.offline.indexHtmlBytes - offlineContentBytes
+
 for (const [name, entry] of Object.entries(budget.assets)) {
   const now = current.assets[name]
   if (!now) {
@@ -142,13 +167,14 @@ for (const [name, entry] of Object.entries(budget.assets)) {
   if (!ok) failures.push(`${name} is ${now.bytes} bytes, over its limit of ${entry.limitBytes}`)
 }
 
-const totalOk = current.distTotalBytes <= budget.distTotal.limitBytes
-rows.push(`${totalOk ? 'ok  ' : 'OVER'} ${'dist/ total'.padEnd(46)} ${String(budget.distTotal.baselineBytes).padStart(10)} → ${String(current.distTotalBytes).padStart(10)} bytes (limit +${budget.distTotal.limitPercent}%)`)
-if (!totalOk) failures.push(`dist/ is ${current.distTotalBytes} bytes, over its limit of ${budget.distTotal.limitBytes}`)
+const withoutContent = (bytes, total) => (bytes === total ? '' : ` (${total} with Day ${contentChunks[0].days[0]}+ content)`)
+const totalOk = distAppBytes <= budget.distTotal.limitBytes
+rows.push(`${totalOk ? 'ok  ' : 'OVER'} ${'dist/ total'.padEnd(46)} ${String(budget.distTotal.baselineBytes).padStart(10)} → ${String(distAppBytes).padStart(10)} bytes (limit +${budget.distTotal.limitPercent}%)${withoutContent(distAppBytes, current.distTotalBytes)}`)
+if (!totalOk) failures.push(`dist/ is ${distAppBytes} bytes without budgeted content, over its limit of ${budget.distTotal.limitBytes}`)
 
-const htmlOk = current.offline.indexHtmlBytes <= budget.offlineIndexHtml.limitBytes
-rows.push(`${htmlOk ? 'ok  ' : 'OVER'} ${'dist-offline/index.html'.padEnd(46)} ${String(budget.offlineIndexHtml.baselineBytes).padStart(10)} → ${String(current.offline.indexHtmlBytes).padStart(10)} bytes (limit +${budget.offlineIndexHtml.limitPercent}%)`)
-if (!htmlOk) failures.push(`dist-offline/index.html is ${current.offline.indexHtmlBytes} bytes, over its limit of ${budget.offlineIndexHtml.limitBytes}`)
+const htmlOk = offlineAppBytes <= budget.offlineIndexHtml.limitBytes
+rows.push(`${htmlOk ? 'ok  ' : 'OVER'} ${'dist-offline/index.html'.padEnd(46)} ${String(budget.offlineIndexHtml.baselineBytes).padStart(10)} → ${String(offlineAppBytes).padStart(10)} bytes (limit +${budget.offlineIndexHtml.limitPercent}%)${withoutContent(offlineAppBytes, current.offline.indexHtmlBytes)}`)
+if (!htmlOk) failures.push(`dist-offline/index.html is ${offlineAppBytes} bytes without budgeted content, over its limit of ${budget.offlineIndexHtml.limitBytes}`)
 
 const sameFiles = JSON.stringify(current.offline.files) === JSON.stringify(budget.offlineFiles)
 rows.push(`${sameFiles ? 'ok  ' : 'DIFF'} ${'dist-offline/ files'.padEnd(46)} ${current.offline.files.join(', ')}`)

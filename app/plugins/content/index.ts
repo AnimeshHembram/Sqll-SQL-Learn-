@@ -4,6 +4,8 @@ import { loadChallenges } from './loadChallenges.ts'
 import { loadContent } from './loadContent.ts'
 import { loadPathContent } from './loadPathContent.ts'
 import { loadQuizzes } from './loadQuizzes.ts'
+import { PROBLEM_TEXT_GROUP_PREFIX, PROBLEM_TEXT_INDEX_MODULE_ID, problemTextGroups, splitProblem } from './problemText.ts'
+import { CHALLENGE_SOLUTIONS_MODULE_ID, SOLUTION_GROUP_PREFIX, solutionGroups } from './solutionGroups.ts'
 
 /**
  * Vite plugin that turns the Markdown lessons, challenges and quizzes into
@@ -14,19 +16,28 @@ import { loadQuizzes } from './loadQuizzes.ts'
  *   updates the page when a content file is edited, added or removed.
  *
  * The app imports lessons, challenges (without solutions) and quizzes from
- * `virtual:sql-learner-content`. Challenge solutions are a separate module,
- * `virtual:sql-learner-challenge-solutions`, imported statically only by the
- * database worker and dynamically by the challenge page when the learner asks
- * to see a solution, so they are never part of the main bundle.
+ * `virtual:sql-learner-content`. Solutions are never part of the page's code:
+ * only the database worker imports them, through
+ * `virtual:sql-learner-solution-index`, which maps each challenge, exercise and
+ * daily problem to a loader for its group (see solutionGroups.ts). A group is
+ * downloaded when one of its answers is first checked, and the page asks the
+ * worker for a solution only when the learner chooses to see it.
+ *
+ * Daily problems are split the same way for the page: `virtual:sql-learner-path-content`
+ * lists every problem without its text, and `virtual:sql-learner-problem-text-index`
+ * loads the task, starter query and hints 30 days at a time (see problemText.ts).
  */
 
 export const CONTENT_MODULE_ID = 'virtual:sql-learner-content'
-export const SOLUTIONS_MODULE_ID = 'virtual:sql-learner-challenge-solutions'
+export const SOLUTION_INDEX_MODULE_ID = 'virtual:sql-learner-solution-index'
 /** SQL Path chapters, exercises (without solutions) and quizzes, imported only by the SQL Path pages. */
 export const PATH_CONTENT_MODULE_ID = 'virtual:sql-learner-path-content'
 const RESOLVED_ID = '\0' + CONTENT_MODULE_ID
-const RESOLVED_SOLUTIONS_ID = '\0' + SOLUTIONS_MODULE_ID
+const RESOLVED_INDEX_ID = '\0' + SOLUTION_INDEX_MODULE_ID
+const isSolutionGroup = (id: string) => id === CHALLENGE_SOLUTIONS_MODULE_ID || id.startsWith(SOLUTION_GROUP_PREFIX)
 const RESOLVED_PATH_ID = '\0' + PATH_CONTENT_MODULE_ID
+const RESOLVED_TEXT_INDEX_ID = '\0' + PROBLEM_TEXT_INDEX_MODULE_ID
+const isTextGroup = (id: string) => id.startsWith(PROBLEM_TEXT_GROUP_PREFIX) && id !== PROBLEM_TEXT_INDEX_MODULE_ID
 
 interface ContentPluginOptions {
   /** Absolute path to the folder that holds the module folders. */
@@ -89,9 +100,13 @@ export function contentPlugin(options: ContentPluginOptions): Plugin {
   const reloadContent = (server: ViteDevServer) => (file: string) => {
     if (!isContentFile(file)) return
     const graph = server.environments.client.moduleGraph
-    for (const id of [RESOLVED_ID, RESOLVED_SOLUTIONS_ID, RESOLVED_PATH_ID]) {
-      const module = graph.getModuleById(id)
-      if (module) graph.invalidateModule(module)
+    // The content modules, the solution index and every solution group (the worker's modules live in the same graph in dev).
+    for (const module of graph.idToModuleMap.values()) {
+      const id = module.id ?? ''
+      const resolvedGroup = id.startsWith('\0') && (isSolutionGroup(id.slice(1)) || isTextGroup(id.slice(1)))
+      if (id === RESOLVED_ID || id === RESOLVED_INDEX_ID || id === RESOLVED_PATH_ID || id === RESOLVED_TEXT_INDEX_ID || resolvedGroup) {
+        graph.invalidateModule(module)
+      }
     }
     server.environments.client.hot.send({ type: 'full-reload' })
   }
@@ -101,24 +116,57 @@ export function contentPlugin(options: ContentPluginOptions): Plugin {
 
     resolveId(id) {
       if (id === CONTENT_MODULE_ID) return RESOLVED_ID
-      if (id === SOLUTIONS_MODULE_ID) return RESOLVED_SOLUTIONS_ID
+      if (id === SOLUTION_INDEX_MODULE_ID) return RESOLVED_INDEX_ID
+      if (isSolutionGroup(id)) return '\0' + id
       if (id === PATH_CONTENT_MODULE_ID) return RESOLVED_PATH_ID
+      if (id === PROBLEM_TEXT_INDEX_MODULE_ID) return RESOLVED_TEXT_INDEX_ID
+      if (isTextGroup(id)) return '\0' + id
       return undefined
     },
 
     load(id) {
-      if (id !== RESOLVED_ID && id !== RESOLVED_SOLUTIONS_ID && id !== RESOLVED_PATH_ID) return undefined
+      const groupId = id.startsWith('\0') && isSolutionGroup(id.slice(1)) ? id.slice(1) : null
+      const textGroupId = id.startsWith('\0') && isTextGroup(id.slice(1)) ? id.slice(1) : null
+      if (id !== RESOLVED_ID && id !== RESOLVED_INDEX_ID && id !== RESOLVED_PATH_ID && id !== RESOLVED_TEXT_INDEX_ID && !groupId && !textGroupId) {
+        return undefined
+      }
       const { modules, challenges, solutions, quizzes, pathModules, pathExercises, pathQuizzes, pathProblems, errors, files } = loadAllContent(options)
       for (const file of files) this.addWatchFile(file)
       lastLoadFailed = errors.length > 0
       if (lastLoadFailed) this.error(formatErrors(errors))
-      if (id === RESOLVED_SOLUTIONS_ID) return `export const solutions = ${JSON.stringify(solutions)};`
+      const groups = solutionGroups(challenges.map((challenge) => challenge.id), pathExercises, pathProblems)
+      if (id === RESOLVED_INDEX_ID) {
+        // One loader per group; each id points at its group's loader.
+        const loaders = groups.map((group, index) => `const g${index} = () => import(${JSON.stringify(group.moduleId)});`)
+        const entries = groups.flatMap((group, index) => group.ids.map((solutionId) => `${JSON.stringify(solutionId)}: g${index}`))
+        return `${loaders.join('\n')}\nexport const solutionLoaders = {\n  ${entries.join(',\n  ')}\n};`
+      }
+      if (groupId) {
+        const group = groups.find((candidate) => candidate.moduleId === groupId)
+        if (!group) this.error(`There is no solution group "${groupId}".`)
+        const subset = Object.fromEntries(group.ids.map((solutionId) => [solutionId, solutions[solutionId]]))
+        return `export const solutions = ${JSON.stringify(subset)};`
+      }
+      const textGroups = problemTextGroups(pathProblems)
+      if (id === RESOLVED_TEXT_INDEX_ID) {
+        const loaders = textGroups.map((group, index) => `const t${index} = () => import(${JSON.stringify(group.moduleId)});`)
+        const entries = textGroups.flatMap((group, index) => group.ids.map((problemId) => `${JSON.stringify(problemId)}: t${index}`))
+        return `${loaders.join('\n')}\nexport const problemTextLoaders = {\n  ${entries.join(',\n  ')}\n};`
+      }
+      if (textGroupId) {
+        const group = textGroups.find((candidate) => candidate.moduleId === textGroupId)
+        if (!group) this.error(`There is no problem text group "${textGroupId}".`)
+        const byId = new Map(pathProblems.map((problem) => [problem.id, problem]))
+        const subset = Object.fromEntries(group.ids.map((problemId) => [problemId, splitProblem(byId.get(problemId)!).text]))
+        return `export const problemText = ${JSON.stringify(subset)};`
+      }
       if (id === RESOLVED_PATH_ID) {
         return [
           `export const pathModules = ${JSON.stringify(pathModules)};`,
           `export const pathExercises = ${JSON.stringify(pathExercises)};`,
           `export const pathQuizzes = ${JSON.stringify(pathQuizzes)};`,
-          `export const pathProblems = ${JSON.stringify(pathProblems)};`,
+          // Without the task text, starter query and hints: those load per 30 days (problemText.ts).
+          `export const pathProblems = ${JSON.stringify(pathProblems.map((problem) => splitProblem(problem).summary))};`,
         ].join('\n')
       }
       return [

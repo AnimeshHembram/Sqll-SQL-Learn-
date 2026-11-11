@@ -3,8 +3,8 @@ import styles from './SchemaExplorer.module.css'
 
 interface SchemaExplorerProps {
   tables: TableInfo[] | null
-  /** Puts a starter query for the table into the editor. */
-  onQueryTable: (tableName: string) => void
+  /** Puts a starter query for the table into the editor. Without it, no "Query this table" button is shown. */
+  onQueryTable?: (tableName: string) => void
 }
 
 /** Lists the session database's tables and views with their columns. */
@@ -51,9 +51,11 @@ export function SchemaExplorer({ tables, onQueryTable }: SchemaExplorerProps) {
                 ))}
               </tbody>
             </table>
-            <button type="button" className={styles.query} onClick={() => onQueryTable(table.name)}>
-              Query this {table.kind}
-            </button>
+            {onQueryTable && (
+              <button type="button" className={styles.query} onClick={() => onQueryTable(table.name)}>
+                Query this {table.kind}
+              </button>
+            )}
           </details>
         </li>
       ))}

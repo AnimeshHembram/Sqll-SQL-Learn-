@@ -157,6 +157,19 @@ export interface PathProblem extends ContentChallenge {
   pathId: string
   /** 1 to 365. */
   day: number
+  /** The shape of the expected result, shown before any attempt: column names and number of rows, never values. */
+  expected: ExpectedShape
+}
+
+/** The text only a problem's own page needs. Loaded with its 30-day group (plugins/content/problemText.ts). */
+export type ProblemText = Pick<PathProblem, 'descriptionHtml' | 'starterSql' | 'hints' | 'objectives' | 'prerequisites'>
+
+/** What every SQL Path page knows about a daily problem: enough for lists, filters, progress and navigation. */
+export type PathProblemSummary = Omit<PathProblem, keyof ProblemText>
+
+export interface ExpectedShape {
+  columns: string[]
+  rowCount: number
 }
 
 /** A chapter's end-of-chapter quiz. Its id is the chapter id. */

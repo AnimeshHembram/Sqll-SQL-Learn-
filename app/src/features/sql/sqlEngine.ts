@@ -1,4 +1,5 @@
 import { createSqlWorker } from './createWorker.ts'
+import type { ChallengeSolution } from '../../content/types.ts'
 import type { EngineInfo, EvaluationResult, ExecuteResult, TableInfo, WorkerRequest, WorkerResponse } from './protocol.ts'
 
 /**
@@ -21,6 +22,9 @@ export const QUERY_TIME_LIMIT_MS = 5000
 
 /** Time allowed for loading SQLite and the dataset. Slow devices may need a while. */
 const START_TIME_LIMIT_MS = 30_000
+
+/** Time allowed for fetching a solution: longer than a query, because it may wait behind one. */
+const SOLUTION_TIME_LIMIT_MS = 15_000
 
 export type EngineStatus = 'idle' | 'starting' | 'ready' | 'busy' | 'failed'
 
@@ -117,6 +121,14 @@ export class SqlEngine {
    */
   evaluate(challengeId: string, sql: string): Promise<EvaluationResult> {
     return this.call<EvaluationResult>({ type: 'evaluate', challengeId, sql }, QUERY_TIME_LIMIT_MS)
+  }
+
+  /**
+   * The solution of a challenge, exercise or daily problem, for when the learner
+   * chooses to see it. A longer limit than a query: it may wait behind one.
+   */
+  solution(challengeId: string): Promise<ChallengeSolution | null> {
+    return this.call<ChallengeSolution | null>({ type: 'solution', challengeId }, SOLUTION_TIME_LIMIT_MS)
   }
 
   /** Starts the engine early, for example when the Practice page opens. */

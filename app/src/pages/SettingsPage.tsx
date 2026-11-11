@@ -6,11 +6,24 @@ import { Button } from '../components/ui/Button.tsx'
 import { Card } from '../components/ui/Card.tsx'
 import { ConfirmDialog } from '../components/ui/ConfirmDialog.tsx'
 import { PageHeader } from '../components/ui/PageHeader.tsx'
-import { reloadPathProgress } from '../features/paths/pathStore.ts'
+import { clearChallengeSessions } from '../features/challenges/challengeSession.ts'
+import type { PathProgressData } from '../features/paths/pathModel.ts'
+import {
+  getPathProgress,
+  reloadPathProgress,
+  replacePathProgress,
+  resetPathProgress,
+  usePathProgress,
+} from '../features/paths/pathStore.ts'
+import {
+  buildProgressFile,
+  describePathProgress,
+  isPathProgressEmpty,
+  parseProgressFileText,
+} from '../features/progress/progressFile.ts'
 import type { ProgressData } from '../features/progress/progressModel.ts'
 import {
-  exportProgress,
-  parseProgressFile,
+  getProgress,
   reloadProgress,
   replaceProgress,
   resetProgress,
@@ -25,7 +38,7 @@ import styles from './SettingsPage.module.css'
 const MAX_IMPORT_BYTES = 1_000_000
 
 type Pending =
-  | { kind: 'import'; progress: ProgressData; fileName: string }
+  | { kind: 'import'; progress: ProgressData; paths: PathProgressData | null; fileName: string }
   | { kind: 'reset' }
   | { kind: 'delete-all' }
   | null
@@ -49,6 +62,8 @@ function isEmpty(progress: ProgressData): boolean {
 
 export function SettingsPage() {
   const progress = useProgress()
+  const pathProgress = usePathProgress()
+  const nothingSaved = isEmpty(progress) && isPathProgressEmpty(pathProgress)
   const [storageAvailable] = useState(isStorageAvailable)
   const [message, setMessage] = useState('')
   const [theme, setTheme] = useState<ThemeId>(readTheme)
@@ -61,7 +76,7 @@ export function SettingsPage() {
   useFocusWhenDone(pending === null, statusRef)
 
   const download = () => {
-    const blob = new Blob([exportProgress()], { type: 'application/json' })
+    const blob = new Blob([buildProgressFile(getProgress(), getPathProgress())], { type: 'application/json' })
     const url = URL.createObjectURL(blob)
     const link = document.createElement('a')
     link.href = url
@@ -90,12 +105,12 @@ export function SettingsPage() {
       setMessage(`"${file.name}" could not be read. Try choosing it again.`)
       return
     }
-    const imported = parseProgressFile(text)
+    const imported = parseProgressFileText(text)
     if (!imported) {
       setMessage(`"${file.name}" is not a SQL Learner progress file, or it comes from a newer version of the app.`)
       return
     }
-    setPending({ kind: 'import', progress: imported, fileName: file.name })
+    setPending({ kind: 'import', progress: imported.progress, paths: imported.paths, fileName: file.name })
   }
 
   const chooseTheme = (next: ThemeId) => {
@@ -111,16 +126,23 @@ export function SettingsPage() {
 
   const confirm = () => {
     if (!pending) return
+    // Every option below changes saved progress, so this visit's unsaved challenge and exercise state is forgotten too.
+    clearChallengeSessions()
     if (pending.kind === 'import') {
-      const saved = replaceProgress(pending.progress)
+      const savedLearn = replaceProgress(pending.progress)
+      const savedPaths = pending.paths ? replacePathProgress(pending.paths) : true
+      const pathsNote = pending.paths
+        ? ` SQL Path: ${describePathProgress(pending.paths)}.`
+        : ' The file has no SQL Path progress (it was exported before SQL Path was added), so your SQL Path progress was kept.'
       setMessage(
-        saved
-          ? `Progress imported from "${pending.fileName}": ${describeProgress(pending.progress)}.`
+        savedLearn && savedPaths
+          ? `Progress imported from "${pending.fileName}": ${describeProgress(pending.progress)}.${pathsNote}`
           : 'Progress was imported for this visit, but this browser is blocking storage, so it will be lost on reload.',
       )
     } else if (pending.kind === 'reset') {
       resetProgress()
-      setMessage('Your progress was reset.')
+      resetPathProgress()
+      setMessage('Your progress was reset, including SQL Path progress and saved drafts.')
     } else {
       const cleared = clearAllStored()
       reloadProgress()
@@ -149,11 +171,11 @@ export function SettingsPage() {
             </p>
           )}
           <p>
-            {isEmpty(progress)
+            {nothingSaved
               ? 'You have no saved progress yet.'
-              : `Saved in this browser: ${describeProgress(progress)}, plus your learning streak.`}{' '}
+              : `Saved in this browser: ${describeProgress(progress)}, plus your learning streak. SQL Path: ${describePathProgress(pathProgress)}.`}{' '}
             Progress is never sent anywhere. To move it to another browser or device, export it here and import the file
-            there.
+            there. The file includes your Learn SQL and SQL Path progress.
           </p>
           <div className={styles.actions}>
             <Button variant="secondary" onClick={download}>
@@ -174,7 +196,7 @@ export function SettingsPage() {
               tabIndex={-1}
               onChange={(event) => void chooseFile(event)}
             />
-            <Button variant="secondary" onClick={() => setPending({ kind: 'reset' })} disabled={isEmpty(progress)}>
+            <Button variant="secondary" onClick={() => setPending({ kind: 'reset' })} disabled={nothingSaved}>
               Reset progress
             </Button>
           </div>
@@ -183,7 +205,8 @@ export function SettingsPage() {
         <Card title="Your data">
           <p>
             Besides your progress, SQL Learner remembers the last lesson you opened so the dashboard can take you back to
-            it, and the theme you chose. These are saved only in this browser and are never sent anywhere. Your practice database is not saved at all:
+            it, the theme you chose, and the unsubmitted queries in SQL Path exercises and daily problems (drafts, which are
+            not exported). These are saved only in this browser and are never sent anywhere. Your practice database is not saved at all:
             it lives in this tab's memory and returns to the original data when you reload the page.
           </p>
           <div className={styles.actions}>
@@ -216,19 +239,26 @@ export function SettingsPage() {
         {pending?.kind === 'import' ? (
           <>
             <p>
-              "{pending.fileName}" contains {describeProgress(pending.progress)}.
+              "{pending.fileName}" contains {describeProgress(pending.progress)}.{' '}
+              {pending.paths
+                ? `SQL Path: ${describePathProgress(pending.paths)}.`
+                : 'It has no SQL Path progress, so your SQL Path progress will be kept.'}
             </p>
-            <p>It will replace the progress saved in this browser ({describeProgress(progress)}). This cannot be undone.</p>
+            <p>
+              It will replace the progress saved in this browser ({describeProgress(progress)}
+              {pending.paths ? `; SQL Path: ${describePathProgress(pathProgress)}` : ''}). This cannot be undone.
+            </p>
           </>
         ) : pending?.kind === 'reset' ? (
           <p>
-            This removes your completed lessons, solved challenges, quiz scores and streak from this browser. Export your
-            progress first if you might want it back.
+            This removes your completed lessons, solved challenges, quiz scores and streak, and all SQL Path progress
+            (chapters, exercises, daily problems, streaks and badges) and saved drafts, from this browser. Your theme is
+            kept. Export your progress first if you might want it back.
           </p>
         ) : (
           <p>
-            This removes everything SQL Learner has saved in this browser: your progress, the last lesson you opened and
-            your theme. This cannot be undone.
+            This removes everything SQL Learner has saved in this browser: your Learn SQL and SQL Path progress, saved
+            drafts, the last lesson you opened and your theme. This cannot be undone.
           </p>
         )}
       </ConfirmDialog>

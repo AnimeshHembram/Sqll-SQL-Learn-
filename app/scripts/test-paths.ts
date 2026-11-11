@@ -6,7 +6,11 @@
  * Covers the catalogue (eight paths, unique ids, every linked lesson exists),
  * independent per-path progress, checking stored data, and that planned
  * chapters never count towards progress. Daily problems: written days run from
- * Day 1 without gaps, attempts, help, streaks and milestones.
+ * Day 1 without gaps, attempts, help, streaks and milestones. Settings: the
+ * progress file carries SQL Path progress, and older files still import.
+ * Stage 3A: each problem shows its expected output shape and no values.
+ * Stage 3B: solutions are grouped for on-demand loading; Days 91-120 and 121-150 are complete.
+ * Stage 3B batch 3: problem text loads 30 days at a time; Days 151-180 are complete.
  */
 
 import assert from 'node:assert/strict'
@@ -14,6 +18,14 @@ import path from 'node:path'
 import { test } from 'node:test'
 import { fileURLToPath } from 'node:url'
 import { loadAllContent } from '../plugins/content/index.ts'
+import { PROBLEM_TEXT_FIELDS, problemTextGroupId, problemTextGroups, splitProblem } from '../plugins/content/problemText.ts'
+import { DAYS_PER_CHUNK, problemGroupId, solutionGroups } from '../plugins/content/solutionGroups.ts'
+import {
+  buildProgressFile,
+  describePathProgress,
+  isPathProgressEmpty,
+  parseProgressFileText,
+} from '../src/features/progress/progressFile.ts'
 import { CAREER_PATHS, PROBLEMS_PER_PATH, isChapterAvailable, type PathChapter } from '../src/content/paths/catalog.ts'
 import {
   emptyPathProgress,
@@ -557,4 +569,211 @@ test('saved exercise drafts are validated, removed when back to the starter quer
   for (let i = 0; i < MAX_DRAFTS + 5; i++) drafts = withDraft(drafts, `x${i}`, 'SELECT 1', i)
   assert.equal(Object.keys(drafts).length, MAX_DRAFTS)
   assert.ok(!('x0' in drafts) && 'x204' in drafts, 'the oldest drafts are dropped first')
+})
+
+// --- Settings: the progress file holds Learn SQL and SQL Path progress (audit issue H1) ---------
+
+test('an exported progress file holds Learn SQL and SQL Path progress and reads back exactly', () => {
+  const now = new Date('2026-11-10T09:00:00Z')
+  let paths = selectPath(emptyPathProgress(), 'data-analyst', now)
+  paths = updatePathRecord(paths, 'data-analyst', (record) => recordExerciseAttempt(record, 'da-average-selling-price', true, now))
+  paths = updatePathRecord(paths, 'data-analyst', (record) => recordProblemAttempt(record, 'da-day-001', true, now))
+  const learn = emptyProgress()
+  const text = buildProgressFile(learn, paths, now)
+  const file = JSON.parse(text)
+  assert.equal(file.app, 'sql-learner')
+  assert.deepEqual(file.paths, paths, 'SQL Path progress is in the file')
+  const read = parseProgressFileText(text)!
+  assert.deepEqual(read.progress, learn)
+  assert.deepEqual(read.paths, paths)
+  assert.equal(describePathProgress(paths), '1 career path: 0 completed chapters, 1 solved exercise and 1 solved daily problem')
+  assert.equal(describePathProgress(emptyPathProgress()), 'no SQL Path progress')
+  assert.ok(isPathProgressEmpty(emptyPathProgress()) && !isPathProgressEmpty(paths))
+})
+
+test('files exported before SQL Path still import, and say nothing about SQL Path progress', () => {
+  const learn = emptyProgress()
+  const old = JSON.stringify({ app: 'sql-learner', exportedAt: '2026-11-01T00:00:00Z', progress: learn })
+  assert.deepEqual(parseProgressFileText(old), { progress: learn, paths: null })
+  assert.deepEqual(parseProgressFileText(JSON.stringify(learn)), { progress: learn, paths: null }, 'the bare stored object is accepted as before')
+})
+
+test('a progress file with damaged SQL Path progress, or that is not progress, is refused as a whole', () => {
+  const learn = emptyProgress()
+  assert.equal(parseProgressFileText(JSON.stringify({ app: 'sql-learner', progress: learn, paths: { version: 99 } })), null)
+  assert.equal(parseProgressFileText(JSON.stringify({ app: 'sql-learner', progress: learn, paths: null })), null)
+  assert.equal(parseProgressFileText('not json'), null)
+  assert.equal(parseProgressFileText('[]'), null)
+  assert.equal(parseProgressFileText(JSON.stringify({ progress: { version: 2 } })), null)
+})
+
+// --- Stage 3A: what a daily problem shows before an attempt ---------------------------------------
+
+test('every daily problem shows its expected output shape: the solution\'s columns and row count, never values', () => {
+  assert.ok(content.pathProblems.length >= 90)
+  for (const problem of content.pathProblems) {
+    const solution = content.solutions[problem.id]
+    assert.deepEqual(problem.expected, { columns: solution.expected.columns, rowCount: solution.expected.rows.length }, problem.id)
+    assert.deepEqual(Object.keys(problem.expected).sort(), ['columns', 'rowCount'], `${problem.id}: only the shape is public`)
+    assert.ok(!('sql' in problem) && !('explanationHtml' in problem), `${problem.id}: the solution stays out of the public problem`)
+    assert.ok(problem.tables.length > 0 || /WITH|VALUES/i.test(problem.starterSql), `${problem.id}: lists its tables or carries its data in the starter query`)
+  }
+})
+
+test('the written Data Analyst problems keep their ids and days, so saved progress still matches', () => {
+  const analyst = content.pathProblems.filter((problem) => problem.pathId === 'data-analyst')
+  assert.ok(analyst.length >= 90, 'the first 90 days are never removed')
+  analyst.forEach((problem, index) => {
+    assert.equal(problem.day, index + 1)
+    assert.equal(problem.id, `da-day-${String(index + 1).padStart(3, '0')}`)
+  })
+  assert.deepEqual([...new Set(content.pathProblems.map((problem) => problem.pathId))], ['data-analyst'], 'no problem is shared with another path')
+})
+
+// --- Stage 3B: solutions load in groups, and the Days 91-120 batch ------------------------------
+
+test('every solution belongs to exactly one on-demand group; daily problems are grouped 30 days at a time', () => {
+  const groups = solutionGroups(content.challenges.map((challenge) => challenge.id), content.pathExercises, content.pathProblems)
+  const seen = new Map<string, string>()
+  for (const group of groups) {
+    for (const id of group.ids) {
+      assert.ok(!seen.has(id), `${id} is in ${seen.get(id)} and ${group.moduleId}`)
+      seen.set(id, group.moduleId)
+    }
+  }
+  assert.deepEqual([...seen.keys()].sort(), Object.keys(content.solutions).sort(), 'every solution has a group, and every group id has a solution')
+  assert.equal(seen.get(content.challenges[0].id), 'virtual:sql-learner-challenge-solutions')
+  assert.equal(problemGroupId('data-analyst', 1), 'virtual:sql-learner-solutions-data-analyst-days-001-030')
+  assert.equal(problemGroupId('data-analyst', 30), 'virtual:sql-learner-solutions-data-analyst-days-001-030')
+  assert.equal(problemGroupId('data-analyst', 91), 'virtual:sql-learner-solutions-data-analyst-days-091-120')
+  assert.equal(problemGroupId('data-analyst', 365), 'virtual:sql-learner-solutions-data-analyst-days-361-390')
+  for (const group of groups) {
+    if (!group.moduleId.includes('-days-')) continue
+    assert.ok(group.ids.length <= DAYS_PER_CHUNK, `${group.moduleId} holds at most one month of problems`)
+  }
+})
+
+test('Days 91-120 are a complete batch: ids, days, three hints, an explanation with a common mistake and labelled wrong answers', () => {
+  const batch = content.pathProblems.filter((problem) => problem.pathId === 'data-analyst' && problem.day >= 91 && problem.day <= 120)
+  assert.equal(batch.length, 30)
+  const earlierTitles = new Set(
+    content.pathProblems.filter((problem) => problem.day < 91).map((problem) => problem.title.toLowerCase()),
+  )
+  for (const problem of batch) {
+    assert.equal(problem.id, `da-day-${String(problem.day).padStart(3, '0')}`)
+    assert.equal(problem.difficulty === 'beginner', false, `${problem.id} is not a beginner problem`)
+    assert.equal(problem.hints.length, 3, `${problem.id} has three hints`)
+    assert.ok(problem.objectives.length > 0, `${problem.id} states what it practises`)
+    assert.ok(!earlierTitles.has(problem.title.toLowerCase()), `${problem.id} does not repeat an earlier title`)
+    assert.ok(problem.expected.rowCount > 0, `${problem.id} expects at least one row`)
+    const solution = content.solutions[problem.id]
+    assert.match(solution.explanationHtml, /Common mistake/, `${problem.id} explains a common mistake`)
+    assert.ok((content.wrongAnswers[problem.id] ?? []).length > 0, `${problem.id} has at least one labelled wrong answer`)
+  }
+  const topics = new Set(batch.map((problem) => problem.topic))
+  assert.ok(topics.size >= 6, `the batch covers several topics (${[...topics].join(', ')})`)
+})
+
+// --- Stage 3B batch 2: Days 121-150 -----------------------------------------------------------------
+
+test('Days 121-150 are a complete batch, loaded as their own solution group', () => {
+  const batch = content.pathProblems.filter((problem) => problem.pathId === 'data-analyst' && problem.day >= 121 && problem.day <= 150)
+  assert.equal(batch.length, 30)
+  const earlier = content.pathProblems.filter((problem) => problem.day < 121)
+  const earlierTitles = new Set(earlier.map((problem) => problem.title.toLowerCase()))
+  const earlierSolutions = new Set(earlier.map((problem) => content.solutions[problem.id].sql.replace(/\s+/g, ' ').trim()))
+  for (const problem of batch) {
+    assert.equal(problem.id, `da-day-${String(problem.day).padStart(3, '0')}`)
+    assert.notEqual(problem.difficulty, 'beginner', `${problem.id} is not a beginner problem`)
+    assert.equal(problem.hints.length, 3, `${problem.id} has three hints`)
+    assert.ok(problem.objectives.length > 0, `${problem.id} states what it practises`)
+    assert.ok(!earlierTitles.has(problem.title.toLowerCase()), `${problem.id} does not repeat an earlier title`)
+    assert.ok(problem.expected.rowCount > 0, `${problem.id} expects at least one row`)
+    const solution = content.solutions[problem.id]
+    assert.ok(!earlierSolutions.has(solution.sql.replace(/\s+/g, ' ').trim()), `${problem.id} is not a copy of an earlier solution`)
+    assert.match(solution.explanationHtml, /Common mistake/, `${problem.id} explains a common mistake`)
+    assert.ok((content.wrongAnswers[problem.id] ?? []).length > 0, `${problem.id} has at least one labelled wrong answer`)
+  }
+  const topics = new Set(batch.map((problem) => problem.topic))
+  assert.ok(topics.size >= 6, `the batch covers several topics (${[...topics].join(', ')})`)
+  assert.ok(batch.filter((problem) => problem.day >= 146).every((problem) => problem.topic === 'Case studies'), 'the last five days are case studies')
+
+  const groups = solutionGroups(content.challenges.map((challenge) => challenge.id), content.pathExercises, content.pathProblems)
+  const group = groups.find((item) => item.moduleId === 'virtual:sql-learner-solutions-data-analyst-days-121-150')
+  assert.ok(group, 'Days 121-150 have their own solution chunk')
+  assert.deepEqual([...group.ids].sort(), batch.map((problem) => problem.id).sort(), 'the chunk holds exactly Days 121-150')
+  const previous = groups.find((item) => item.moduleId === 'virtual:sql-learner-solutions-data-analyst-days-091-120')
+  assert.equal(previous?.ids.length, 30, 'the Days 91-120 chunk is unchanged')
+})
+
+test('size budgets: app limits stay as recorded; content from Day 91 has its own per-chunk budget', async () => {
+  const { readFileSync } = await import('node:fs')
+  const sizeBudget = JSON.parse(readFileSync(path.join(root, 'scripts/size-budget.json'), 'utf8'))
+  assert.equal(sizeBudget.distTotal.limitBytes, 2648084, 'the dist/ limit is not re-recorded')
+  assert.equal(sizeBudget.offlineIndexHtml.limitBytes, 2832001, 'the offline limit is not re-recorded')
+  assert.equal(sizeBudget.assets['sql.worker.js'].limitBytes, 209017)
+  const contentBudget = JSON.parse(readFileSync(path.join(root, 'scripts/content-budget.json'), 'utf8'))
+  assert.equal(contentBudget.firstDay, 91, 'Days 1-90 were in the baseline and stay counted as app bytes')
+  assert.equal(contentBudget.chunkLimitBytes, 150000)
+})
+
+// --- Stage 3B batch 3: problem text in 30-day groups, and Days 151-180 ----------------------------------
+
+test('problem text: the list keeps what pages need, the text moves to its 30-day group, nothing is lost', () => {
+  const problems = content.pathProblems
+  for (const problem of problems) {
+    const { summary, text } = splitProblem(problem)
+    for (const field of PROBLEM_TEXT_FIELDS) {
+      assert.ok(!(field in summary), `${problem.id}: ${field} is not in the problem list`)
+      assert.ok(field in text, `${problem.id}: ${field} is in the text group`)
+    }
+    // Everything the list, filters, progress and navigation use stays in the summary.
+    for (const field of ['id', 'pathId', 'day', 'title', 'topic', 'difficulty', 'summary', 'tables', 'expected', 'evaluation'] as const) {
+      assert.deepEqual(summary[field], problem[field], `${problem.id}: ${field} is in the problem list`)
+    }
+    assert.deepEqual({ ...summary, ...text }, problem, `${problem.id}: list + text gives back the whole problem`)
+    // Reference solutions are never part of either half.
+    assert.ok(!JSON.stringify({ summary, text }).includes(content.solutions[problem.id].sql), `${problem.id}: no reference SQL in page content`)
+  }
+  assert.equal(problemTextGroupId('data-analyst', 1), 'virtual:sql-learner-problem-text-data-analyst-days-001-030')
+  assert.equal(problemTextGroupId('data-analyst', 150), 'virtual:sql-learner-problem-text-data-analyst-days-121-150')
+  assert.equal(problemTextGroupId('data-analyst', 151), 'virtual:sql-learner-problem-text-data-analyst-days-151-180')
+  const groups = problemTextGroups(problems)
+  const ids = groups.flatMap((group) => group.ids)
+  assert.equal(ids.length, problems.length, 'every problem is in exactly one text group')
+  assert.equal(new Set(ids).size, ids.length)
+  for (const group of groups) assert.ok(group.ids.length <= DAYS_PER_CHUNK, `${group.moduleId} holds at most ${DAYS_PER_CHUNK} days`)
+  // Text groups and solution groups cover the same days, under different module names.
+  const solutionIds = solutionGroups([], [], problems).map((group) => group.moduleId.replace('solutions', 'problem-text'))
+  assert.deepEqual(groups.map((group) => group.moduleId).sort(), solutionIds.sort())
+})
+
+test('Days 151-180 are a complete batch, with their own text and solution groups', () => {
+  const batch = content.pathProblems.filter((problem) => problem.pathId === 'data-analyst' && problem.day >= 151 && problem.day <= 180)
+  assert.equal(batch.length, 30)
+  const all = content.pathProblems.filter((problem) => problem.pathId === 'data-analyst')
+  assert.deepEqual(all.map((problem) => problem.day), Array.from({ length: 180 }, (_, i) => i + 1), 'Days 1-180 run without gaps')
+  const earlier = content.pathProblems.filter((problem) => problem.day < 151)
+  const earlierTitles = new Set(earlier.map((problem) => problem.title.toLowerCase()))
+  const earlierSolutions = new Set(earlier.map((problem) => content.solutions[problem.id].sql.replace(/\s+/g, ' ').trim()))
+  for (const problem of batch) {
+    assert.equal(problem.id, `da-day-${problem.day}`)
+    assert.notEqual(problem.difficulty, 'beginner', `${problem.id} is not a beginner problem`)
+    assert.equal(problem.hints.length, 3, `${problem.id} has three hints`)
+    assert.ok(problem.objectives.length > 0, `${problem.id} states what it practises`)
+    assert.ok(!earlierTitles.has(problem.title.toLowerCase()), `${problem.id} does not repeat an earlier title`)
+    assert.ok(problem.expected.rowCount > 0, `${problem.id} expects at least one row`)
+    const solution = content.solutions[problem.id]
+    assert.ok(!earlierSolutions.has(solution.sql.replace(/\s+/g, ' ').trim()), `${problem.id} is not a copy of an earlier solution`)
+    assert.match(solution.explanationHtml, /Common mistake/, `${problem.id} explains a common mistake`)
+    assert.ok((content.wrongAnswers[problem.id] ?? []).length > 0, `${problem.id} has at least one labelled wrong answer`)
+  }
+  const topics = new Set(batch.map((problem) => problem.topic))
+  assert.ok(topics.size >= 6, `the batch covers several topics (${[...topics].join(', ')})`)
+  assert.ok(batch.filter((problem) => problem.day >= 176).every((problem) => problem.topic === 'Case studies'), 'the last five days are case studies')
+  const groups = solutionGroups(content.challenges.map((challenge) => challenge.id), content.pathExercises, content.pathProblems)
+  const group = groups.find((item) => item.moduleId === 'virtual:sql-learner-solutions-data-analyst-days-151-180')
+  assert.deepEqual([...(group?.ids ?? [])].sort(), batch.map((problem) => problem.id).sort(), 'the solution chunk holds exactly Days 151-180')
+  const textGroup = problemTextGroups(content.pathProblems).find((item) => item.moduleId === 'virtual:sql-learner-problem-text-data-analyst-days-151-180')
+  assert.deepEqual([...(textGroup?.ids ?? [])].sort(), batch.map((problem) => problem.id).sort(), 'the text chunk holds exactly Days 151-180')
 })

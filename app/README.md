@@ -186,6 +186,11 @@ src/
 | `/learn`      | Learn SQL     |
 | `/learn/:moduleId` | Module overview |
 | `/learn/:moduleId/:lessonId` | Lesson |
+| `/paths`      | SQL Path: the eight career paths |
+| `/paths/:pathId` | A career path's roadmap and progress |
+| `/paths/:pathId/:chapterId` | A written SQL Path chapter, with its exercises and quiz |
+| `/paths/:pathId/problems` | Daily SQL problems: progress, streak, milestones and all 365 days |
+| `/paths/:pathId/problems/:day` | One daily problem (Day 1 to 365; unwritten days say so) |
 | `/practice`   | Practice      |
 | `/challenges` | Challenges (filters: `?difficulty=beginner&topic=WHERE&status=unsolved`) |
 | `/challenges/:challengeId` | Challenge |
@@ -198,8 +203,9 @@ src/
 
 ## Data stored in the browser
 
-Two `localStorage` entries, both prefixed `sql-learner:`. Nothing is sent anywhere.
+`localStorage` entries, all prefixed `sql-learner:`. Nothing is sent anywhere.
 
+- `theme:v1` — the theme chosen in Settings.
 - `last-lesson:v1` — the last lesson opened, so the dashboard can offer "Continue learning".
 - `progress:v1` — learning progress:
   - lessons marked complete, with the date;
@@ -210,20 +216,67 @@ Two `localStorage` entries, both prefixed `sql-learner:`. Nothing is sent anywhe
     challenge answer, finishing a quiz, running a practice query), kept for about 400 days, used
     for the streak;
   - the 20 most recent lessons completed, challenges solved and quizzes finished.
+- `paths:v1` — SQL Path progress, one record per career path: the current path, chapters completed,
+  chapter exercises and quizzes, daily problems (attempts, hints, revealed solutions, first solve),
+  and milestone badges. Saved only once a path is chosen or an exercise or problem is attempted.
+- `path-drafts:v1` — unsubmitted queries in SQL Path exercises and daily problems, so a learner who
+  leaves a page finds their query where they left it. At most 200 drafts are kept. Drafts are not
+  progress and are never exported.
 
 Lesson completion is the learner's choice ("Mark as complete" at the end of each lesson); nothing is
 marked complete automatically. A streak counts consecutive days with activity, and is still current
 on a day with no activity yet, until that day ends.
 
-Settings can export progress as a JSON file, import such a file (checked, then confirmed before it
-replaces anything), reset progress, or delete all saved data. If storage is blocked, the app works
-normally, progress lasts only for the visit, and Settings says so.
+Settings can:
 
-Challenge drafts are kept in memory only, until the page is reloaded. Quiz answers in progress are
+- **Export progress** as a JSON file: `{ app, exportedAt, progress, paths }`, holding both the Learn
+  SQL progress and the SQL Path progress.
+- **Import progress** from such a file (checked, then confirmed before it replaces anything). Files
+  exported before SQL Path existed have no `paths`; they replace the Learn SQL progress and keep the
+  current SQL Path progress. A file whose `paths` is damaged is refused as a whole.
+- **Reset progress**: clears the Learn SQL progress, the SQL Path progress and the saved drafts. The
+  theme and the last lesson are kept.
+- **Delete all saved data**: removes every entry above.
+
+If storage is blocked, the app works normally, progress lasts only for the visit, and Settings says so.
+
+Drafts in Challenges (not SQL Path) are kept in memory only, until the page is reloaded. Quiz answers in progress are
 kept only while the quiz page is open.
 
 The practice database is kept in memory only, for the current tab. Reloading the page, pressing
 Reset database, or stopping a long query restores the original bookstore data.
+
+## Daily SQL problems
+
+Each career path has a sequence of 365 daily problems in
+`src/content/paths-content/problems/<path-id>/day-<nnn>-<name>.md`, written in the challenge format.
+Days run from Day 1 without gaps; the build fails on a gap, a repeated day or an `order` that differs
+from the file's day. Only the Data Analyst path has problems so far (Days 1 to 180); later days and
+other paths are added in batches, never as filler.
+
+Each 30-day batch adds about 125 kB of problem text. `npm run measure:build` (run after `npm run check`)
+budgets problems from Day 91 on separately, at most 150 kB per 30-day chunk (`scripts/content-budget.json`),
+and takes them out of the dist/ and offline totals, whose limits in `scripts/size-budget.json` are unchanged.
+
+- **One path per problem.** A problem belongs to exactly one path (its folder) and its progress is
+  saved in that path's own record in `paths:v1`, keyed by the problem id (`da-day-001`). Problems
+  are not shared between paths, so switching paths never changes another path's progress.
+- **No deadlines.** Every written day is open at any time, in any order. Missing a day locks
+  nothing and takes nothing away. The next suggested problem is the first unsolved day.
+- **Checked like challenges.** Answers run in the challenge worker on a fresh read-only copy of the
+  dataset and are compared with the reference query, which never reaches the page.
+- **Solutions load on demand.** Only the worker holds solutions, split into groups: Learn SQL
+  challenges, each path's chapter exercises, and each path's daily problems 30 days at a time
+  (`plugins/content/solutionGroups.ts`). A group is downloaded the first time one of its answers is
+  checked, so adding days does not make the worker bigger. The page asks the worker for a solution
+  only when the learner chooses to see it. The offline build embeds every group in the page.
+- **Shown before an attempt:** the task, the columns and types of the tables it uses, and the
+  expected output's shape (column names and number of rows, never values).
+- **Help:** hints one at a time; the solution, expected result and explanation unlock after an
+  attempt or after the last hint, and are shown only when the learner asks.
+- **Saved:** attempts, first solve, most hints shown, whether the solution was revealed, and
+  milestone badges; drafts are kept separately. The streak counts calendar days with at least one
+  first solve.
 
 ## Challenge evaluation
 

@@ -135,8 +135,12 @@ export function loadPathContent(root: string, datasetsDir: string, takenChalleng
         continue
       }
       days.push(day)
-      result.problems.push({ ...problem, pathId, day })
-      result.solutions[problem.id] = loaded.solutions[problem.id]
+      const solution = loaded.solutions[problem.id]
+      // The shape of the expected result (column names and row count, never values) is public, so the page can
+      // show what the answer should look like before any attempt. The rows themselves stay in the hidden solution.
+      const expected = { columns: solution.expected.columns, rowCount: solution.expected.rows.length }
+      result.problems.push({ ...problem, pathId, day, expected })
+      result.solutions[problem.id] = solution
       result.wrongAnswers[problem.id] = loaded.wrongAnswers[problem.id] ?? []
       result.sourceFiles[problem.id] = file
     }

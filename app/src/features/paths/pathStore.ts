@@ -1,5 +1,5 @@
 import { useSyncExternalStore } from 'react'
-import { readStored, subscribeStored, writeStored } from '../../lib/storage.ts'
+import { readStored, removeStored, subscribeStored, writeStored } from '../../lib/storage.ts'
 import {
   emptyPathProgress,
   ensurePathRecord,
@@ -17,12 +17,15 @@ import {
   type PathRecord,
 } from './pathModel.ts'
 import { reachedMilestones } from './problemSummary.ts'
-import { reloadDrafts } from './pathDrafts.ts'
+import { clearDrafts, reloadDrafts } from './pathDrafts.ts'
 
 /**
  * SQL Path progress, saved in this browser under its own versioned key and
  * shared with React through useSyncExternalStore (the same approach as
- * progressStore.ts). Settings → "Delete all data" clears it; "Reset progress" (Learn SQL) does not.
+ * progressStore.ts). It is part of Settings → "Export progress" and "Import
+ * progress", and both "Reset progress" and "Delete all saved data" clear it.
+ * An empty record is stored as no entry at all, so a learner who never opens
+ * SQL Path has nothing saved under this key.
  */
 
 const KEY = 'paths:v1'
@@ -69,6 +72,23 @@ function commit(change: (current: PathProgressData) => PathProgressData): boolea
 
 export function usePathProgress(): PathProgressData {
   return useSyncExternalStore(subscribe, getPathProgress, emptyPathProgress)
+}
+
+/**
+ * Replaces all SQL Path progress, for example with an imported file. Empty
+ * progress removes the saved entry. Returns false if it could not be saved.
+ */
+export function replacePathProgress(data: PathProgressData): boolean {
+  cache = data
+  const saved = Object.keys(data.paths).length === 0 ? removeStored(KEY) : writeStored(KEY, data)
+  notify()
+  return saved
+}
+
+/** Clears SQL Path progress and the saved drafts. Returns false if storage is unavailable. */
+export function resetPathProgress(): boolean {
+  const cleared = replacePathProgress(emptyPathProgress())
+  return clearDrafts() && cleared
 }
 
 /** Makes a path the current one. Other paths' progress is kept. Returns false if it could not be saved. */

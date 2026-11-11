@@ -27,6 +27,11 @@
   background: var(--color-surface);
 }
 
+.loading {
+  margin: var(--space-6) 0;
+  color: var(--color-text-muted);
+}
+
 .pager {
   display: grid;
   grid-template-columns: 1fr auto 1fr;
@@ -73,4 +78,12 @@
     justify-items: start;
     text-align: left;
   }
+}
+
+.schema {
+  margin-bottom: var(--space-8);
+}
+
+.continue {
+  font-weight: var(--weight-semibold);
 }

@@ -1,0 +1,6 @@
+{
+  "note": "Budget for daily-problem content added after the size-budget.json baseline (which already held Days 1 to 90). Approved in Stage 3B batch 2: app-code budgets in size-budget.json stay as recorded; problems from firstDay on are measured per 30-day solution chunk (solution chunk file + public problem text found verbatim in the build) and are taken out of the dist/ and offline totals. See scripts/content-size.mjs.",
+  "approvedAt": "2026-11-11",
+  "firstDay": 91,
+  "chunkLimitBytes": 150000
+}

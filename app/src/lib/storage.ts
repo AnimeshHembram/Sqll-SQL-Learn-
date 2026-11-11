@@ -26,6 +26,16 @@ export function writeStored(key: string, value: unknown): boolean {
   }
 }
 
+/** Removes one saved value. Returns false if storage is unavailable. */
+export function removeStored(key: string): boolean {
+  try {
+    window.localStorage.removeItem(PREFIX + key)
+    return true
+  } catch {
+    return false
+  }
+}
+
 /** True when this browser lets SQL Learner save data. */
 export function isStorageAvailable(): boolean {
   try {

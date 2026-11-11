@@ -1,5 +1,6 @@
 import { challenges, quizzes } from 'virtual:sql-learner-content'
 import { NAV } from '../app/navigation.ts'
+import { challengeEngine } from '../features/sql/sqlEngine.ts'
 import { LEVELS, type ChallengeSolution, type ContentChallenge, type ContentQuiz, type Level } from './types.ts'
 
 export type { ChallengeSolution, ContentChallenge, ContentQuiz, QuizQuestion } from './types.ts'
@@ -58,10 +59,10 @@ export function describeChallengeLevels(): string {
 }
 
 /**
- * Loads a challenge's solution, expected result and explanation. They are in a
- * separate chunk that is only downloaded when the learner asks to see a solution.
+ * Loads a challenge's, exercise's or daily problem's solution, expected result
+ * and explanation. Only the database worker holds solutions, so the page asks it,
+ * and only when the learner chooses to see one.
  */
 export async function loadSolution(challengeId: string): Promise<ChallengeSolution | undefined> {
-  const { solutions } = await import('virtual:sql-learner-challenge-solutions')
-  return (solutions as Record<string, ChallengeSolution | undefined>)[challengeId]
+  return (await challengeEngine.solution(challengeId)) ?? undefined
 }

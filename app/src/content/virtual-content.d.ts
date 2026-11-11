@@ -6,9 +6,10 @@ declare module 'virtual:sql-learner-content' {
   export const quizzes: unknown
 }
 
-// Challenge solutions, kept out of the main bundle (see plugins/content/index.ts).
-declare module 'virtual:sql-learner-challenge-solutions' {
-  export const solutions: unknown
+// Solutions are imported only by the database worker, one group at a time (see plugins/content/solutionGroups.ts).
+declare module 'virtual:sql-learner-solution-index' {
+  /** For each challenge, exercise and daily problem id: loads the group that holds its solution. */
+  export const solutionLoaders: Record<string, () => Promise<{ solutions: unknown }>>
 }
 
 // SQL Path chapters, exercises (without solutions) and quizzes, loaded only by the SQL Path pages.
@@ -16,5 +17,12 @@ declare module 'virtual:sql-learner-path-content' {
   export const pathModules: unknown
   export const pathExercises: unknown
   export const pathQuizzes: unknown
+  /** The light part of every daily problem (no task text, starter query or hints). */
   export const pathProblems: unknown
+}
+
+// Daily-problem text, one group of 30 days at a time (see plugins/content/problemText.ts).
+declare module 'virtual:sql-learner-problem-text-index' {
+  /** For each daily problem id: loads the group that holds its task, starter query, hints and objectives. */
+  export const problemTextLoaders: Record<string, () => Promise<{ problemText: unknown }>>
 }

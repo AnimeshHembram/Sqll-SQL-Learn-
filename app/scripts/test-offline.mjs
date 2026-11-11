@@ -163,12 +163,60 @@ try {
     await page.waitForFunction(() => document.body.innerText.includes('All 365 days'))
     await page.goto(`${appUrl}#/paths/data-analyst/problems/2`)
     const card = page.locator('[data-exercise="da-day-002"]')
+    await card.locator('[data-expected-output]').filter({ hasText: 'Expected output:' }).waitFor()
+    await page.getByRole('region', { name: 'The table for this problem' }).getByText('books', { exact: true }).waitFor()
     await card.locator('.cm-content').click()
     await page.keyboard.press('ControlOrMeta+A')
     await page.keyboard.press('Delete')
     await page.keyboard.insertText("SELECT title, price FROM books WHERE genre = 'Mystery'")
     await card.getByRole('button', { name: 'Submit answer' }).click()
     await card.locator('[data-feedback="correct"]').waitFor({ timeout: 15000 })
+    // Solutions are embedded in the offline worker, so showing one works from disk too.
+    await card.getByRole('button', { name: 'Compare with the solution' }).click()
+    await card.getByRole('heading', { name: 'Expected result' }).waitFor({ timeout: 15000 })
+  })
+
+  await check('daily problems: a Stage 3B problem (Day 120) is checked from disk', async () => {
+    await page.goto(`${appUrl}#/paths/data-analyst/problems/120`)
+    const card = page.locator('[data-exercise="da-day-120"]')
+    await card.getByRole('button', { name: 'Submit answer' }).click()
+    await card.locator('[data-feedback]').waitFor({ timeout: 15000 })
+    assert.notEqual(await card.locator('[data-feedback]').getAttribute('data-feedback'), 'correct', 'the starter query is not accepted')
+  })
+
+  await check('daily problems: a batch 2 problem (Day 127) rejects its starter and accepts a correct query from disk', async () => {
+    await page.goto(`${appUrl}#/paths/data-analyst/problems/127`)
+    const card = page.locator('[data-exercise="da-day-127"]')
+    await card.getByRole('button', { name: 'Submit answer' }).click()
+    await card.locator('[data-feedback]').waitFor({ timeout: 15000 })
+    assert.notEqual(await card.locator('[data-feedback]').getAttribute('data-feedback'), 'correct', 'the starter query is not accepted')
+    await card.locator('.cm-content').click()
+    await page.keyboard.press('ControlOrMeta+A')
+    await page.keyboard.press('Delete')
+    await page.keyboard.insertText(
+      "WITH RECURSIVE price_changes(day, price) AS (VALUES ('2025-03-01', 10.00), ('2025-03-04', 12.50), ('2025-03-08', 11.00)), " +
+        "calendar(day) AS (SELECT '2025-02-28' UNION ALL SELECT date(day, '+1 day') FROM calendar WHERE day < '2025-03-10') " +
+        'SELECT c.day, (SELECT price FROM price_changes AS p WHERE p.day <= c.day ORDER BY p.day DESC LIMIT 1) AS price FROM calendar AS c ORDER BY c.day',
+    )
+    await card.getByRole('button', { name: 'Submit answer' }).click()
+    await card.locator('[data-feedback="correct"]').waitFor({ timeout: 15000 })
+    await card.getByRole('button', { name: 'Compare with the solution' }).click()
+    await card.getByRole('heading', { name: 'Expected result' }).waitFor({ timeout: 15000 })
+  })
+
+  await check('daily problems: batch 3 text and solutions are inside the file; Day 180 is checked and Next/Previous cross Day 150/151 from disk', async () => {
+    await page.goto(`${appUrl}#/paths/data-analyst/problems/180`)
+    const card = page.locator('[data-exercise="da-day-180"]')
+    await card.waitFor({ timeout: 15000 })
+    await card.getByRole('button', { name: 'Submit answer' }).click()
+    await card.locator('[data-feedback]').waitFor({ timeout: 15000 })
+    assert.notEqual(await card.locator('[data-feedback]').getAttribute('data-feedback'), 'correct', 'the starter query is not accepted')
+    await page.goto(`${appUrl}#/paths/data-analyst/problems/151`)
+    await page.locator('[data-exercise="da-day-151"]').waitFor({ timeout: 15000 })
+    await page.getByRole('link', { name: /^Previous day\s*Day 150: / }).click()
+    await page.locator('[data-exercise="da-day-150"]').waitFor({ timeout: 15000 })
+    await page.getByRole('link', { name: /^Next day\s*Day 151: / }).click()
+    await page.locator('[data-exercise="da-day-151"]').waitFor({ timeout: 15000 })
   })
 
   await check('progress is saved: the lesson stays complete after reopening app/index.html', async () => {

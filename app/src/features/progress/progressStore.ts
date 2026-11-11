@@ -167,27 +167,7 @@ export function recordPracticeRun(now = new Date()): void {
 
 // --- Whole progress ---------------------------------------------------------------
 
-/** The progress as a JSON file's contents, for "Export progress". */
-export function exportProgress(): string {
-  return JSON.stringify({ app: 'sql-learner', exportedAt: new Date().toISOString(), progress: getProgress() }, null, 2)
-}
-
-/**
- * Reads an exported file. Accepts the export format and, for convenience, the
- * bare stored object. Returns null if the text is not SQL Learner progress.
- */
-export function parseProgressFile(text: string): ProgressData | null {
-  let value: unknown
-  try {
-    value = JSON.parse(text)
-  } catch {
-    return null
-  }
-  if (typeof value === 'object' && value !== null && 'progress' in value) {
-    return parseProgress((value as { progress: unknown }).progress)
-  }
-  return parseProgress(value)
-}
+// The export file (Learn SQL and SQL Path progress together) is built and read in progressFile.ts.
 
 /** Replaces all progress, for example with an imported file. Returns false if it could not be saved. */
 export function replaceProgress(progress: ProgressData): boolean {

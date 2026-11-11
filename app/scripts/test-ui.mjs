@@ -14,7 +14,7 @@
  */
 
 import assert from 'node:assert/strict'
-import { existsSync } from 'node:fs'
+import { existsSync, readFileSync, readdirSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { preview } from 'vite'
 
@@ -839,6 +839,240 @@ try {
     assert.match(await main.innerText(), /✓ First problem solved/)
     await page.getByRole('link', { name: /^Day 1: Customer contact list\. Solved\.$/ }).waitFor()
     await page.getByRole('link', { name: 'Continue: Day 2, Stock the mystery shelf' }).waitFor()
+  })
+
+  await check('daily problems: the page shows the tables, the expected output shape and Next; progress survives reload and switching paths', async (page) => {
+    await page.goto(`${base}/paths/data-analyst/problems/1`)
+    await page.getByRole('heading', { level: 1, name: 'Day 1: Customer contact list' }).waitFor()
+    // The schema panel lists only this problem's table, with its columns, and cannot overwrite the learner's query.
+    const schema = page.getByRole('region', { name: 'The table for this problem' })
+    await schema.getByText('customers', { exact: true }).waitFor()
+    for (const column of ['id', 'name', 'city', 'joined']) await schema.locator('code', { hasText: new RegExp(`^${column}$`) }).first().waitFor()
+    assert.equal(await schema.getByText('orders', { exact: true }).count(), 0, 'tables the problem does not use are not listed')
+    assert.equal(await schema.getByRole('button').count(), 0, 'no "Query this table" button replaces the draft')
+    // The expected output's shape is shown before any attempt, without values.
+    const card = page.locator('[data-exercise="da-day-001"]')
+    const expected = card.locator('[data-expected-output]')
+    assert.equal(await expected.innerText(), 'Expected output: 5 rows with the columns name and city, in this order.')
+    assert.doesNotMatch(await card.innerText(), /Aisha Khan|Bangalore/, 'no expected values are shown before the solution')
+    // A problem whose data is in the starter query says so instead of listing tables.
+    await page.goto(`${base}/paths/data-analyst/problems/68`)
+    await page.getByText(/data is written in the starter query itself/).waitFor()
+
+    // Solve Day 1: a Next link leads to Day 2.
+    await page.goto(`${base}/paths/data-analyst/problems/1`)
+    await card.locator('.cm-content').click()
+    await page.keyboard.press('ControlOrMeta+A')
+    await page.keyboard.press('Delete')
+    await page.keyboard.insertText('SELECT name, city FROM customers ORDER BY name')
+    await card.getByRole('button', { name: 'Submit answer' }).click()
+    await card.locator('[data-feedback="correct"]').waitFor()
+    await page.getByRole('link', { name: 'Next: Day 2, Stock the mystery shelf' }).click()
+    await page.getByRole('heading', { level: 1, name: /^Day 2:/ }).waitFor()
+
+    // Reload: still solved. Switch to another path and back: still solved, and the other path has no problems saved.
+    await page.goto(`${base}/paths/data-analyst/problems/1`)
+    await page.reload()
+    await page.getByText(/^Solved on /).waitFor()
+    const before = (await storedPaths(page)).paths['data-analyst']
+    await page.goto(`${base}/paths/data-engineer`)
+    await page.getByRole('button', { name: /Make this my current path|Switch to Data Engineer/ }).click()
+    await page.getByRole('status').filter({ hasText: 'Data Engineer is now your current path.' }).waitFor()
+    await page.goto(`${base}/paths/data-engineer/problems`)
+    await page.getByText('No problems are written for this path yet.').waitFor()
+    const after = await storedPaths(page)
+    assert.deepEqual(after.paths['data-analyst'], before, 'switching paths leaves the Data Analyst problems untouched')
+    assert.deepEqual(after.paths['data-engineer'].problems, {}, 'problems are not shared between paths')
+    await page.goto(`${base}/paths/data-analyst/problems`)
+    await page.getByRole('link', { name: /^Day 1: Customer contact list\. Solved\.$/ }).waitFor()
+  })
+
+  await check('daily problems: Day 104 loads only its own month of solutions, and the page bundle never contains solutions', async (page, context) => {
+    const requested = []
+    context.on('request', (request) => requested.push(request.url()))
+    await page.goto(`${base}/paths/data-analyst/problems/104`)
+    await page.getByRole('heading', { level: 1, name: "Day 104: Each customer's first and latest order status" }).waitFor()
+    const card = page.locator('[data-exercise="da-day-104"]')
+    // The starter query is rejected, a correct alternative is accepted.
+    await card.getByRole('button', { name: 'Submit answer' }).click()
+    await card.locator('[data-feedback]').waitFor()
+    assert.notEqual(await card.locator('[data-feedback]').getAttribute('data-feedback'), 'correct')
+    await card.locator('.cm-content').click()
+    await page.keyboard.press('ControlOrMeta+A')
+    await page.keyboard.press('Delete')
+    await page.keyboard.insertText(
+      'SELECT id AS order_id, customer_id, status, ' +
+        'FIRST_VALUE(status) OVER (PARTITION BY customer_id ORDER BY order_date) AS first_status, ' +
+        'FIRST_VALUE(status) OVER (PARTITION BY customer_id ORDER BY order_date DESC) AS latest_status FROM orders ORDER BY id',
+    )
+    await card.getByRole('button', { name: 'Submit answer' }).click()
+    await card.locator('[data-feedback="correct"]').waitFor()
+    await card.getByRole('button', { name: 'Compare with the solution' }).click()
+    await card.getByText(/UNBOUNDED FOLLOWING/).first().waitFor()
+    const solutionChunks = requested.filter((url) => /sql-learner-(challenge-)?solutions/.test(url)).map((url) => url.replace(/^.*\/assets\//, ''))
+    assert.equal(solutionChunks.length, 1, `exactly one solution chunk was downloaded (${solutionChunks.join(', ')})`)
+    assert.match(solutionChunks[0], /^_virtual_sql-learner-solutions-data-analyst-days-091-120-/)
+
+    // A sentence that exists only in Day 120's explanation is only in Days 91-120's solution chunk.
+    const assetsDir = fileURLToPath(new URL('../dist/assets/', import.meta.url))
+    const holders = readdirSync(assetsDir).filter((file) => readFileSync(assetsDir + file, 'utf8').includes('Owl Supplies only sold in April'))
+    assert.equal(holders.length, 1, `one file holds the solution text (${holders.join(', ')})`)
+    assert.match(holders[0], /^_virtual_sql-learner-solutions-data-analyst-days-091-120-/)
+  })
+
+  await check('daily problems: Day 141 loads only the Days 121-150 solutions; its starter is rejected and a different correct query is accepted', async (page, context) => {
+    const requested = []
+    context.on('request', (request) => requested.push(request.url()))
+    await page.goto(`${base}/paths/data-analyst/problems/141`)
+    await page.getByRole('heading', { level: 1, name: 'Day 141: Find double-booked rooms' }).waitFor()
+    const card = page.locator('[data-exercise="da-day-141"]')
+    await card.getByRole('button', { name: 'Submit answer' }).click()
+    await card.locator('[data-feedback]').waitFor()
+    assert.notEqual(await card.locator('[data-feedback]').getAttribute('data-feedback'), 'correct')
+    await card.locator('.cm-content').click()
+    await page.keyboard.press('ControlOrMeta+A')
+    await page.keyboard.press('Delete')
+    await page.keyboard.insertText(
+      "WITH bookings(id, room, check_in, check_out) AS (VALUES (1, 'R101', '2025-03-01', '2025-03-04'), (2, 'R101', '2025-03-04', '2025-03-06'), " +
+        "(3, 'R101', '2025-03-05', '2025-03-08'), (4, 'R102', '2025-03-01', '2025-03-10'), (5, 'R102', '2025-03-03', '2025-03-05'), " +
+        "(6, 'R102', '2025-03-09', '2025-03-12'), (7, 'R103', '2025-03-01', '2025-03-02')) " +
+        'SELECT a.id AS booking_a, b.id AS booking_b, a.room, ' +
+        'CAST(julianday(MIN(a.check_out, b.check_out)) - julianday(MAX(a.check_in, b.check_in)) AS INTEGER) AS overlap_nights ' +
+        'FROM bookings a, bookings b WHERE a.room = b.room AND a.id < b.id AND NOT (a.check_out <= b.check_in OR b.check_out <= a.check_in) ORDER BY 1, 2',
+    )
+    await card.getByRole('button', { name: 'Submit answer' }).click()
+    await card.locator('[data-feedback="correct"]').waitFor()
+    await card.getByRole('button', { name: 'Compare with the solution' }).click()
+    await card.getByText(/JOIN bookings AS b ON b\.room = a\.room/).first().waitFor()
+    const solutionChunks = requested.filter((url) => /sql-learner-(challenge-)?solutions/.test(url)).map((url) => url.replace(/^.*\/assets\//, ''))
+    assert.equal(solutionChunks.length, 1, `exactly one solution chunk was downloaded (${solutionChunks.join(', ')})`)
+    assert.match(solutionChunks[0], /^_virtual_sql-learner-solutions-data-analyst-days-121-150-/)
+
+    // A sentence that exists only in Day 150's explanation is only in Days 121-150's solution chunk.
+    const assetsDir = fileURLToPath(new URL('../dist/assets/', import.meta.url))
+    const holders = readdirSync(assetsDir).filter((file) => readFileSync(assetsDir + file, 'utf8').includes('The 150-day capstone builds a management summary'))
+    assert.equal(holders.length, 1, `one file holds the solution text (${holders.join(', ')})`)
+    assert.match(holders[0], /^_virtual_sql-learner-solutions-data-analyst-days-121-150-/)
+  })
+
+  await check('daily problems: task text loads 30 days at a time, Next crosses from Day 150 to Day 151, and no solution loads until asked', async (page, context) => {
+    const requested = []
+    context.on('request', (request) => requested.push(request.url().replace(/^.*\/assets\//, '')))
+    const textChunks = () => [...new Set(requested.filter((file) => file.includes('sql-learner-problem-text-')))]
+    const solutionChunks = () => requested.filter((file) => /sql-learner-(challenge-)?solutions/.test(file))
+    await page.goto(`${base}/paths/data-analyst/problems/150`)
+    await page.locator('[data-exercise="da-day-150"]').waitFor()
+    assert.equal(textChunks().length, 1, `one text chunk for Day 150 (${textChunks().join(', ')})`)
+    assert.match(textChunks()[0], /^_virtual_sql-learner-problem-text-data-analyst-days-121-150-/)
+    await page.getByRole('link', { name: /^Next day\s*Day 151: / }).click()
+    await page.getByRole('heading', { level: 1, name: /^Day 151: / }).waitFor()
+    await page.locator('[data-exercise="da-day-151"]').waitFor()
+    assert.ok(textChunks().some((file) => /^_virtual_sql-learner-problem-text-data-analyst-days-151-180-/.test(file)), 'Day 151 loads the next text group')
+    assert.equal(textChunks().length, 2, `only the two groups visited were downloaded (${textChunks().join(', ')})`)
+    await page.getByRole('link', { name: /^Previous day\s*Day 150: / }).click()
+    await page.locator('[data-exercise="da-day-150"]').waitFor()
+    assert.equal(solutionChunks().length, 0, `no solutions before an answer is checked or a solution is asked for (${solutionChunks().join(', ')})`)
+
+    // The task text lives only in its own text chunk, never in the page bundle; solutions are never in a text chunk.
+    const assetsDir = fileURLToPath(new URL('../dist/assets/', import.meta.url))
+    const holders = readdirSync(assetsDir).filter((file) => readFileSync(assetsDir + file, 'utf8').includes('The board wants one table for the first quarter of 2025'))
+    assert.deepEqual(holders.map((file) => file.replace(/-[\w-]{8}\.js$/, '')), ['_virtual_sql-learner-problem-text-data-analyst-days-121-150'])
+    for (const file of readdirSync(assetsDir).filter((name) => name.includes('problem-text'))) {
+      assert.ok(!readFileSync(assetsDir + file, 'utf8').includes('The 150-day capstone builds a management summary'), `${file} holds no solution text`)
+    }
+  })
+
+  await check('daily problems: the topic and difficulty filters cover all 180 problems, including the new topics', async (page) => {
+    await page.goto(`${base}/paths/data-analyst/problems`)
+    const status = page.getByRole('status').filter({ hasText: /^Showing / })
+    await status.filter({ hasText: 'Showing 180 of 180 written problems.' }).waitFor()
+    await page.getByLabel('Topic').selectOption('Query performance')
+    await status.filter({ hasText: 'Showing 5 of 180 written problems.' }).waitFor()
+    const days = await page.locator('section[aria-labelledby="problem-list"] ol > li > span:first-child').allTextContents()
+    assert.deepEqual(days.map((text) => text.trim()), ['Day 171', 'Day 172', 'Day 173', 'Day 174', 'Day 175'])
+    await page.getByLabel('Difficulty').selectOption('advanced')
+    await status.filter({ hasText: 'Showing 2 of 180 written problems.' }).waitFor()
+    await page.getByLabel('Topic').selectOption('Statistics')
+    await status.filter({ hasText: 'Showing 4 of 180 written problems.' }).waitFor()
+    // The year map marks Days 1-180 as written and Day 181 as not written yet.
+    await page.getByLabel('Topic').selectOption('')
+    assert.equal(await page.locator('[aria-label^="Day 180: "]').count(), 1)
+    assert.equal(await page.locator('[aria-label^="Day 181: "]').count(), 0)
+  })
+
+  await check('settings: export, import and reset include SQL Path progress; reset also clears drafts', async (page) => {
+    const pathsKey = 'sql-learner:paths:v1'
+    const draftsKey = 'sql-learner:path-drafts:v1'
+    const seededPaths = {
+      version: 1,
+      activePathId: 'data-analyst',
+      paths: {
+        'data-analyst': {
+          startedAt: '2026-11-01T09:00:00.000Z',
+          lastSelectedAt: '2026-11-01T09:00:00.000Z',
+          chapters: {},
+          exercises: { 'da-average-selling-price': { solvedAt: '2026-11-01T09:05:00.000Z', attempts: 2, hintsUsed: 1, revealedSolution: false } },
+          quizzes: {},
+          problems: { 'da-day-001': { solvedAt: '2026-11-01T09:10:00.000Z', attempts: 1, hintsUsed: 0, revealedSolution: false } },
+          projects: {},
+          badges: { 'problems-1': { earnedAt: '2026-11-01T09:10:00.000Z' } },
+        },
+      },
+    }
+    const read = (key) => page.evaluate((k) => JSON.parse(localStorage.getItem(k) ?? 'null'), key)
+    await page.goto(`${base}/settings`)
+    await page.evaluate(([pk, dk, paths]) => {
+      localStorage.setItem(pk, JSON.stringify(paths))
+      localStorage.setItem(dk, JSON.stringify({ 'da-revenue-per-buyer': { sql: 'SELECT 1 -- my draft', savedAt: 1 } }))
+    }, [pathsKey, draftsKey, seededPaths])
+    await page.reload()
+    // With only SQL Path progress saved, there is still something to reset, and the page says what is saved.
+    assert.equal(await page.getByRole('button', { name: 'Reset progress' }).isEnabled(), true)
+    assert.match(await page.locator('main').innerText(), /SQL Path: 1 career path: 0 completed chapters, 1 solved exercise and 1 solved daily problem/)
+
+    // Export: the file holds the SQL Path record exactly.
+    const [download] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: 'Export progress' }).click()])
+    const file = JSON.parse(await (await download.createReadStream()).toArray().then((chunks) => Buffer.concat(chunks).toString('utf8')))
+    assert.deepEqual(file.paths, seededPaths, 'the export holds the SQL Path progress')
+    assert.equal('path-drafts' in file || JSON.stringify(file).includes('my draft'), false, 'drafts are not exported')
+
+    // Reset: Learn SQL and SQL Path progress and drafts are cleared; the theme is kept.
+    await page.getByRole('radio', { name: 'Purple' }).check()
+    await page.getByRole('button', { name: 'Reset progress' }).click()
+    assert.match(await page.getByRole('dialog').innerText(), /SQL Path progress/)
+    await page.getByRole('dialog').getByRole('button', { name: 'Reset progress' }).click()
+    await page.getByRole('status').filter({ hasText: 'including SQL Path progress and saved drafts' }).waitFor()
+    assert.equal(await read(pathsKey), null)
+    assert.equal(await read(draftsKey), null)
+    assert.equal(await read('sql-learner:theme:v1'), 'purple', 'the theme survives a reset')
+    assert.equal(await page.getByRole('button', { name: 'Reset progress' }).isDisabled(), true)
+    await page.goto(`${base}/paths/data-analyst/revenue-metrics`)
+    const card = page.locator('[data-exercise="da-revenue-per-buyer"]')
+    await card.waitFor()
+    assert.equal(await card.locator('.cm-content').filter({ hasText: 'my draft' }).count(), 0, 'the draft is gone after a reset')
+
+    // Import the exported file: the SQL Path record comes back exactly.
+    const exported = { name: 'progress.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(file)) }
+    await page.goto(`${base}/settings`)
+    await page.locator('input[type=file]').setInputFiles(exported)
+    assert.match(await page.getByRole('dialog').innerText(), /SQL Path: 1 career path/)
+    await page.getByRole('dialog').getByRole('button', { name: 'Replace progress' }).click()
+    await page.getByRole('status').filter({ hasText: 'SQL Path: 1 career path' }).waitFor()
+    assert.deepEqual(await read(pathsKey), seededPaths, 'the import restores the SQL Path progress')
+
+    // A file exported before SQL Path existed keeps the current SQL Path progress.
+    const old = { name: 'old.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify({ app: 'sql-learner', exportedAt: '2026-10-01T00:00:00.000Z', progress: file.progress })) }
+    await page.locator('input[type=file]').setInputFiles(old)
+    assert.match(await page.getByRole('dialog').innerText(), /SQL Path progress will be kept/)
+    await page.getByRole('dialog').getByRole('button', { name: 'Replace progress' }).click()
+    await page.getByRole('status').filter({ hasText: 'your SQL Path progress was kept' }).waitFor()
+    assert.deepEqual(await read(pathsKey), seededPaths)
+
+    // Delete all saved data removes SQL Path progress too.
+    await page.getByRole('button', { name: 'Delete all saved data' }).click()
+    await page.getByRole('dialog').getByRole('button', { name: 'Delete all data' }).click()
+    await page.getByRole('status').filter({ hasText: 'All saved data was deleted' }).waitFor()
+    assert.deepEqual(await page.evaluate(() => Object.keys(localStorage).filter((key) => key.startsWith('sql-learner:'))), [])
   })
 
   assert.deepEqual(errors, [], 'no console errors')

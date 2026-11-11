@@ -37,6 +37,12 @@ export function updateChallengeSession(challengeId: string, update: (session: Ch
   listeners.forEach((listener) => listener())
 }
 
+/** Forgets this visit's state for every challenge and exercise, for example after Settings → "Reset progress". */
+export function clearChallengeSessions() {
+  sessions.clear()
+  listeners.forEach((listener) => listener())
+}
+
 export function useChallengeSession(challengeId: string): ChallengeSession {
   return useSyncExternalStore(subscribe, () => getChallengeSession(challengeId))
 }

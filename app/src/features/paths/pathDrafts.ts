@@ -1,4 +1,4 @@
-import { readStored, writeStored } from '../../lib/storage.ts'
+import { readStored, removeStored, writeStored } from '../../lib/storage.ts'
 import { parseDrafts, withDraft, type DraftMap } from './pathDraftsModel.ts'
 
 /**
@@ -26,6 +26,12 @@ export function savedDraft(id: string): string | null {
 export function saveDraft(id: string, sql: string | null): void {
   cache = withDraft(drafts(), id, sql, Date.now())
   writeStored(KEY, cache)
+}
+
+/** Removes every saved draft, for example after Settings → "Reset progress". Returns false if storage is unavailable. */
+export function clearDrafts(): boolean {
+  cache = {}
+  return removeStored(KEY)
 }
 
 /** Forgets the in-memory copy, for example after "Delete all saved data". */

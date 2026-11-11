@@ -7,16 +7,18 @@ import { Breadcrumbs } from '../components/ui/Breadcrumbs.tsx'
 import { Button } from '../components/ui/Button.tsx'
 import { Card } from '../components/ui/Card.tsx'
 import { PageHeader } from '../components/ui/PageHeader.tsx'
+import { SchemaExplorer } from '../components/sql/SchemaExplorer.tsx'
 import { findPath, pathUrl, type CareerPath } from '../content/paths/catalog.ts'
 import { pathProblemList, problemsUrl, problemUrl } from '../content/paths/chapters.ts'
-import type { PathProblem } from '../content/types.ts'
+import { loadProblem } from '../content/paths/problemText.ts'
+import type { PathProblem, PathProblemSummary } from '../content/types.ts'
 import {
   recordPathProblemHints,
   recordPathProblemSolutionRevealed,
   recordPathProblemSubmission,
   usePathProgress,
 } from '../features/paths/pathStore.ts'
-import { PROBLEM_DAYS } from '../features/paths/problemSummary.ts'
+import { PROBLEM_DAYS, nextProblemDay } from '../features/paths/problemSummary.ts'
 import type { TableInfo } from '../features/sql/protocol.ts'
 import { challengeEngine } from '../features/sql/sqlEngine.ts'
 import { useSqlEngine } from '../features/sql/useSqlEngine.ts'
@@ -61,13 +63,32 @@ function UnwrittenDay({ path, day, written }: { path: CareerPath; day: number; w
   )
 }
 
-function ProblemView({ path, problem, problems }: { path: CareerPath; problem: PathProblem; problems: readonly PathProblem[] }) {
+function ProblemView({ path, problem, problems }: { path: CareerPath; problem: PathProblemSummary; problems: readonly PathProblemSummary[] }) {
   const record = usePathProgress().paths[path.id]
   const saved = record?.problems[problem.id]
   const ids = useMemo(() => problems.map((item) => item.id), [problems])
   const engine = useSqlEngine(challengeEngine)
   const [tables, setTables] = useState<TableInfo[] | null>(null)
   const engineUsable = engine.sqliteVersion !== null && engine.status !== 'failed'
+  // The task, starter query and hints load with this day's 30-day group (src/content/paths/problemText.ts).
+  const [text, setText] = useState<{ full: PathProblem } | { failed: true } | null>(null)
+  const [textAttempt, setTextAttempt] = useState(0)
+
+  useEffect(() => {
+    let cancelled = false
+    loadProblem(problem).then(
+      (full) => {
+        if (!cancelled) setText({ full })
+      },
+      () => {
+        if (!cancelled) setText({ failed: true })
+      },
+    )
+    return () => {
+      cancelled = true
+    }
+  }, [problem, textAttempt])
+  const full = text && 'full' in text ? text.full : null
 
   useEffect(() => {
     void challengeEngine.start().catch(() => {
@@ -92,6 +113,13 @@ function ProblemView({ path, problem, problems }: { path: CareerPath; problem: P
   const schema = useMemo(() => Object.fromEntries((tables ?? []).map((table) => [table.name, table.columns.map((column) => column.name)])), [tables])
   const previous = problems[problem.day - 2]
   const next = problems[problem.day]
+  // Only the tables this problem uses, so the learner sees exactly the columns they need.
+  const problemTables = useMemo(
+    () => (tables ? tables.filter((table) => problem.tables.includes(table.name)) : null),
+    [tables, problem.tables],
+  )
+  // Where to go once this day is solved: the next written day, or the first unsolved one if every later day is done.
+  const continueDay = saved?.solvedAt ? (next ?? problems[(nextProblemDay(ids, record) ?? 0) - 1]) : undefined
 
   return (
     <>
@@ -115,40 +143,88 @@ function ProblemView({ path, problem, problems }: { path: CareerPath; problem: P
           : saved && saved.attempts > 0
             ? `${saved.attempts} ${saved.attempts === 1 ? 'attempt' : 'attempts'} so far. Your attempts are saved; come back any time.`
             : 'Not tried yet. There is no deadline: this problem stays open whenever you come back.'}
+        {continueDay && continueDay.id !== problem.id && (
+          <>
+            {' '}
+            <Link to={problemUrl(path.id, continueDay.day)} className={styles.continue}>
+              Next: Day {continueDay.day}, {continueDay.title}
+            </Link>
+          </>
+        )}
       </p>
 
-      <div className={styles.about}>
-        <Card title="This problem practises">
-          <ul className={styles.bullets}>
-            {problem.objectives.map((objective) => (
-              <li key={objective}>{objective}</li>
-            ))}
-          </ul>
-        </Card>
-        {problem.prerequisites.length > 0 && (
-          <Card title="You should already know">
+      {full && (
+        <div className={styles.about}>
+          <Card title="This problem practises">
             <ul className={styles.bullets}>
-              {problem.prerequisites.map((item) => (
-                <li key={item}>{item}</li>
+              {full.objectives.map((objective) => (
+                <li key={objective}>{objective}</li>
               ))}
             </ul>
           </Card>
-        )}
-      </div>
+          {full.prerequisites.length > 0 && (
+            <Card title="You should already know">
+              <ul className={styles.bullets}>
+                {full.prerequisites.map((item) => (
+                  <li key={item}>{item}</li>
+                ))}
+              </ul>
+            </Card>
+          )}
+        </div>
+      )}
 
-      <ExerciseCard
-        exercise={problem}
-        label={`Day ${problem.day}`}
-        headingLevel={2}
-        saved={saved}
-        schema={schema}
-        engineFailed={engine.status === 'failed'}
-        recorder={{
-          submitted: (correct) => recordPathProblemSubmission(path.id, problem.id, correct, ids),
-          hintsShown: (count) => recordPathProblemHints(path.id, problem.id, count),
-          solutionRevealed: () => recordPathProblemSolutionRevealed(path.id, problem.id),
-        }}
-      />
+      <Card
+        title={problem.tables.length === 1 ? 'The table for this problem' : 'Tables for this problem'}
+        description={
+          problem.tables.length > 0
+            ? 'Columns and types in the bookstore database. Your query runs on a fresh copy, so nothing you try can change it.'
+            : undefined
+        }
+        className={styles.schema}
+      >
+        {problem.tables.length > 0 ? (
+          <SchemaExplorer tables={engineUsable ? problemTables : null} />
+        ) : (
+          <p>This problem's data is written in the starter query itself, so it does not use the bookstore tables.</p>
+        )}
+      </Card>
+
+      {text && 'failed' in text && (
+        <div className={styles.failure} role="alert">
+          <p>Day {problem.day} could not be loaded. Check your connection and try again.</p>
+          <Button
+            variant="secondary"
+            onClick={() => {
+              setText(null)
+              setTextAttempt((count) => count + 1)
+            }}
+          >
+            Try again
+          </Button>
+        </div>
+      )}
+      {!text && (
+        <p className={styles.loading} role="status">
+          Loading Day {problem.day}…
+        </p>
+      )}
+      {full && (
+        <ExerciseCard
+          exercise={full}
+          label={`Day ${problem.day}`}
+          headingLevel={2}
+          expected={problem.expected}
+          saved={saved}
+          schema={schema}
+          engineFailed={engine.status === 'failed'}
+          recorder={{
+            submitted: (correct) => recordPathProblemSubmission(path.id, problem.id, correct, ids),
+            hintsShown: (count) => recordPathProblemHints(path.id, problem.id, count),
+            solutionRevealed: () => recordPathProblemSolutionRevealed(path.id, problem.id),
+          }}
+        />
+      )}
       {engine.status === 'failed' && (
         <div className={styles.failure} role="alert">
           <p>{engine.failure}</p>

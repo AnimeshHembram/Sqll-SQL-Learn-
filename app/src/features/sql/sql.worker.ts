@@ -3,17 +3,19 @@
  * UI thread. Holds one session database, created from bookstore.sql, that keeps
  * the learner's changes until it is reset.
  *
- * It also evaluates challenge submissions. The reference queries are imported
+ * It also evaluates challenge submissions. The reference queries are loaded
  * here, inside the worker, so they never pass through the page: the page sends
  * a challenge id and the learner's SQL, and gets back feedback and the learner's
- * own result.
+ * own result. Solutions are loaded one group at a time, the first time an
+ * answer in that group is checked, so the worker stays small as daily problems
+ * are added. The page receives a solution only when the learner asks to see it.
  *
  * Requests are processed one at a time, in the order they arrive.
  */
 
 import initSqlJs, { type Database, type SqlJsStatic } from 'sql.js'
 import wasmUrl from 'sql.js/dist/sql-wasm-browser.wasm?url'
-import { solutions } from 'virtual:sql-learner-challenge-solutions'
+import { solutionLoaders } from 'virtual:sql-learner-solution-index'
 import bookstoreSql from '../../content/datasets/bookstore.sql?raw'
 import type { ChallengeSolution } from '../../content/types.ts'
 import { evaluateRun, type RunOutcome } from '../challenges/evaluate.ts'
@@ -72,8 +74,16 @@ function toOutcome({ statements, error }: ExecuteResult): RunOutcome {
   }
 }
 
+/** Loads (once per group) and returns a challenge's, exercise's or daily problem's solution. */
+async function solutionFor(challengeId: string): Promise<ChallengeSolution | undefined> {
+  const load = solutionLoaders[challengeId]
+  if (!load) return undefined
+  const { solutions } = await load()
+  return (solutions as Record<string, ChallengeSolution | undefined>)[challengeId]
+}
+
 async function evaluate(challengeId: string, sql: string): Promise<EvaluationResult> {
-  const solution = (solutions as Record<string, ChallengeSolution | undefined>)[challengeId]
+  const solution = await solutionFor(challengeId)
   if (!solution) throw new Error(`There is no challenge "${challengeId}".`)
   const result = await isolatedRun(sql)
   const reference = await isolatedRun(solution.sql)
@@ -135,6 +145,8 @@ async function handle(request: WorkerRequest): Promise<unknown> {
       return readSchema(await sessionDatabase())
     case 'evaluate':
       return evaluate(request.challengeId, request.sql)
+    case 'solution':
+      return (await solutionFor(request.challengeId)) ?? null
   }
 }
 

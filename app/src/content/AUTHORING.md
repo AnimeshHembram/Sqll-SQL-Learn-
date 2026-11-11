@@ -277,10 +277,18 @@ Unknown fields and sections are rejected.
 ### What stays hidden
 
 The build splits each challenge in two. The list and the challenge page get the task, starter
-query and hints. The solution, expected result, explanation and other accepted answers go into a
-separate module that only the database worker imports, plus a chunk the page downloads when the
-learner chooses to see the solution. Feedback describes the learner's own result (columns, number
-of rows, order) and never shows values from the expected result.
+query and hints. The solution, expected result, explanation and other accepted answers go into
+solution modules that only the database worker imports, one group at a time (Learn SQL challenges,
+each SQL Path's exercises, and its daily problems 30 days per group; see
+`plugins/content/solutionGroups.ts`). The page asks the worker for a solution only when the learner
+chooses to see it. Feedback describes the learner's own result (columns, number of rows, order) and
+never shows values from the expected result. Daily problems also show the expected result's shape
+(column names and number of rows) before an attempt, never its values.
+
+Daily problems are split once more for the page: the problem list (titles, topics, levels, the
+expected result's shape) loads with the SQL Path pages, while each problem's task, starter query,
+hints and objectives load with their 30-day group when the problem is opened (see
+`plugins/content/problemText.ts`). The offline build includes every group inside its one file.
 
 The solution is only revealed after the learner has submitted at least once or used every hint.
 

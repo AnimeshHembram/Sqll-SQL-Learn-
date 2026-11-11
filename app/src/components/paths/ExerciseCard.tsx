@@ -1,5 +1,5 @@
 import { useCallback, useRef, useState } from 'react'
-import type { ContentChallenge } from '../../content/types.ts'
+import type { ContentChallenge, ExpectedShape } from '../../content/types.ts'
 import { updateChallengeSession, useChallengeSession } from '../../features/challenges/challengeSession.ts'
 import type { Feedback } from '../../features/challenges/evaluate.ts'
 import { saveDraft, savedDraft } from '../../features/paths/pathDrafts.ts'
@@ -47,6 +47,8 @@ interface ExerciseCardProps {
   engineFailed: boolean
   /** Heading level of the exercise title: 3 under a section heading (chapters), 2 directly under the page title (daily problems). */
   headingLevel?: 2 | 3
+  /** The expected result's shape (daily problems), shown under the task. */
+  expected?: ExpectedShape
 }
 
 /**
@@ -54,7 +56,7 @@ interface ExerciseCardProps {
  * like challenges (against the reference query, never shown until asked for),
  * and the result is saved in the exercise's own path record.
  */
-export function ExerciseCard({ exercise, label, saved, recorder, schema, engineFailed, headingLevel = 3 }: ExerciseCardProps) {
+export function ExerciseCard({ exercise, label, saved, recorder, schema, engineFailed, headingLevel = 3, expected }: ExerciseCardProps) {
   const save: ExerciseRecorder = recorder ?? {
     submitted: (correct) => recordPathExerciseSubmission(exercise.pathId, exercise.id, correct),
     hintsShown: (count) => recordPathExerciseHints(exercise.pathId, exercise.id, count),
@@ -138,6 +140,7 @@ export function ExerciseCard({ exercise, label, saved, recorder, schema, engineF
         {exercise.evaluation.orderMatters ? 'Row order must match the task.' : 'Any row order is accepted.'}{' '}
         {exercise.evaluation.checkColumnNames ? 'Column names must match the task.' : 'Any column names are accepted.'}
       </p>
+      {expected && <ExpectedOutput expected={expected} checkColumnNames={exercise.evaluation.checkColumnNames} />}
 
       <SqlEditor
         ref={editorRef}
@@ -207,6 +210,33 @@ export function ExerciseCard({ exercise, label, saved, recorder, schema, engineF
         }}
       />
     </section>
+  )
+}
+
+/** "Expected output: 2 rows with the columns title, genre and price." Shape only: the values stay hidden until the solution is shown. */
+function ExpectedOutput({ expected, checkColumnNames }: { expected: ExpectedShape; checkColumnNames: boolean }) {
+  const rows = `${expected.rowCount} ${expected.rowCount === 1 ? 'row' : 'rows'}`
+  const count = expected.columns.length
+  return (
+    <p className={styles.rules} data-expected-output>
+      <strong>Expected output:</strong> {rows}{' '}
+      {checkColumnNames ? (
+        <>
+          with the {count === 1 ? 'column' : 'columns'}{' '}
+          {expected.columns.map((column, index) => (
+            <span key={column + index}>
+              {index > 0 && (index === count - 1 ? ' and ' : ', ')}
+              <code>{column}</code>
+            </span>
+          ))}
+          , in this order.
+        </>
+      ) : (
+        <>
+          and {count} {count === 1 ? 'column' : 'columns'} (any column names).
+        </>
+      )}
+    </p>
   )
 }
 

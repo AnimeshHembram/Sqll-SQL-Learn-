@@ -80,6 +80,8 @@ export type WorkerRequest =
   | { id: number; type: 'schema' }
   /** Runs `sql` and the challenge's reference query, each on its own fresh read-only copy of the dataset, and compares them. */
   | { id: number; type: 'evaluate'; challengeId: string; sql: string }
+  /** The solution, expected result and explanation, sent only when the learner chooses to see them. Null if unknown. */
+  | { id: number; type: 'solution'; challengeId: string }
 
 export type WorkerResponse =
   | { id: number; ok: true; value: unknown }
