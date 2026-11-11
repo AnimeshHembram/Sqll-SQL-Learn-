@@ -219,6 +219,19 @@ try {
     await page.locator('[data-exercise="da-day-151"]').waitFor({ timeout: 15000 })
   })
 
+  await check('daily problems: Days 181-210 work from disk (Day 210 starter rejected, Day 180 -> 181 navigation)', async () => {
+    await page.goto(`${appUrl}#/paths/data-analyst/problems/210`)
+    const card = page.locator('[data-exercise="da-day-210"]')
+    await card.waitFor({ timeout: 15000 })
+    await card.getByRole('button', { name: 'Submit answer' }).click()
+    await card.locator('[data-feedback]').waitFor({ timeout: 15000 })
+    assert.notEqual(await card.locator('[data-feedback]').getAttribute('data-feedback'), 'correct', 'the starter query is not accepted')
+    await page.goto(`${appUrl}#/paths/data-analyst/problems/180`)
+    await page.locator('[data-exercise="da-day-180"]').waitFor({ timeout: 15000 })
+    await page.getByRole('link', { name: /^Next day\s*Day 181: / }).click()
+    await page.locator('[data-exercise="da-day-181"]').waitFor({ timeout: 15000 })
+  })
+
   await check('progress is saved: the lesson stays complete after reopening app/index.html', async () => {
     await page.goto(`${entryUrl}#/learn/sql-fundamentals/introduction-to-select`)
     await page.waitForURL(`${appUrl}#/learn/sql-fundamentals/introduction-to-select`)

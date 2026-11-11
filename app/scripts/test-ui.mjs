@@ -971,6 +971,12 @@ try {
     assert.equal(textChunks().length, 2, `only the two groups visited were downloaded (${textChunks().join(', ')})`)
     await page.getByRole('link', { name: /^Previous day\s*Day 150: / }).click()
     await page.locator('[data-exercise="da-day-150"]').waitFor()
+    // Day 180 -> Day 181 crosses into the Days 181-210 group (Stage 4 workstream 1).
+    await page.goto(`${base}/paths/data-analyst/problems/180`)
+    await page.locator('[data-exercise="da-day-180"]').waitFor()
+    await page.getByRole('link', { name: /^Next day\s*Day 181: / }).click()
+    await page.locator('[data-exercise="da-day-181"]').waitFor()
+    assert.ok(textChunks().some((file) => /^_virtual_sql-learner-problem-text-data-analyst-days-181-210-/.test(file)), 'Day 181 loads its own text group')
     assert.equal(solutionChunks().length, 0, `no solutions before an answer is checked or a solution is asked for (${solutionChunks().join(', ')})`)
 
     // The task text lives only in its own text chunk, never in the page bundle; solutions are never in a text chunk.
@@ -982,22 +988,22 @@ try {
     }
   })
 
-  await check('daily problems: the topic and difficulty filters cover all 180 problems, including the new topics', async (page) => {
+  await check('daily problems: the topic and difficulty filters cover all 210 problems, including the new topics', async (page) => {
     await page.goto(`${base}/paths/data-analyst/problems`)
     const status = page.getByRole('status').filter({ hasText: /^Showing / })
-    await status.filter({ hasText: 'Showing 180 of 180 written problems.' }).waitFor()
+    await status.filter({ hasText: 'Showing 210 of 210 written problems.' }).waitFor()
     await page.getByLabel('Topic').selectOption('Query performance')
-    await status.filter({ hasText: 'Showing 5 of 180 written problems.' }).waitFor()
+    await status.filter({ hasText: 'Showing 5 of 210 written problems.' }).waitFor()
     const days = await page.locator('section[aria-labelledby="problem-list"] ol > li > span:first-child').allTextContents()
     assert.deepEqual(days.map((text) => text.trim()), ['Day 171', 'Day 172', 'Day 173', 'Day 174', 'Day 175'])
     await page.getByLabel('Difficulty').selectOption('advanced')
-    await status.filter({ hasText: 'Showing 2 of 180 written problems.' }).waitFor()
+    await status.filter({ hasText: 'Showing 2 of 210 written problems.' }).waitFor()
     await page.getByLabel('Topic').selectOption('Statistics')
-    await status.filter({ hasText: 'Showing 4 of 180 written problems.' }).waitFor()
-    // The year map marks Days 1-180 as written and Day 181 as not written yet.
+    await status.filter({ hasText: 'Showing 7 of 210 written problems.' }).waitFor()
+    // The year map marks Days 1-210 as written and Day 211 as not written yet.
     await page.getByLabel('Topic').selectOption('')
-    assert.equal(await page.locator('[aria-label^="Day 180: "]').count(), 1)
-    assert.equal(await page.locator('[aria-label^="Day 181: "]').count(), 0)
+    assert.equal(await page.locator('[aria-label^="Day 210: "]').count(), 1)
+    assert.equal(await page.locator('[aria-label^="Day 211: "]').count(), 0)
   })
 
   await check('settings: export, import and reset include SQL Path progress; reset also clears drafts', async (page) => {
