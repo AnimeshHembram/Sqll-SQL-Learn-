@@ -11,6 +11,8 @@ import {
   recordExerciseHelp,
   recordProblemAttempt,
   recordProblemHelp,
+  recordProjectCompletion,
+  recordProjectStarted,
   selectPath,
   updatePathRecord,
   type PathProgressData,
@@ -152,4 +154,33 @@ export function recordPathProblemHints(pathId: string, problemId: string, hintsU
 
 export function recordPathProblemSolutionRevealed(pathId: string, problemId: string, now = new Date()): boolean {
   return commitToPath(pathId, (record) => recordProblemHelp(record, problemId, { revealedSolution: true }), now)
+}
+
+// --- Projects ------------------------------------------------------------------------------
+// A project's tasks are saved like chapter exercises (in `exercises`, keyed by task id), and the
+// project's own entry records when it was started and when every task was first solved.
+
+/** Records a project task submission. `taskIds` are all the project's tasks, so completion is exact. */
+export function recordPathProjectTaskSubmission(
+  pathId: string,
+  projectId: string,
+  taskId: string,
+  correct: boolean,
+  taskIds: readonly string[],
+  now = new Date(),
+): boolean {
+  return commitToPath(
+    pathId,
+    (record) =>
+      recordProjectCompletion(recordExerciseAttempt(recordProjectStarted(record, projectId, now), taskId, correct, now), projectId, taskIds, now),
+    now,
+  )
+}
+
+export function recordPathProjectTaskHints(pathId: string, projectId: string, taskId: string, hintsUsed: number, now = new Date()): boolean {
+  return commitToPath(pathId, (record) => recordExerciseHelp(recordProjectStarted(record, projectId, now), taskId, { hintsUsed }), now)
+}
+
+export function recordPathProjectTaskSolutionRevealed(pathId: string, projectId: string, taskId: string, now = new Date()): boolean {
+  return commitToPath(pathId, (record) => recordExerciseHelp(recordProjectStarted(record, projectId, now), taskId, { revealedSolution: true }), now)
 }

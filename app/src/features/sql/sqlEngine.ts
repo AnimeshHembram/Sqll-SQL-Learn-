@@ -100,9 +100,12 @@ export class SqlEngine {
     return this.call<ExecuteResult>({ type: 'execute', sql, scratch: false }, QUERY_TIME_LIMIT_MS)
   }
 
-  /** Runs SQL against a fresh copy of the dataset. The session database is not touched. */
-  runScratch(sql: string): Promise<ExecuteResult> {
-    return this.call<ExecuteResult>({ type: 'execute', sql, scratch: true }, QUERY_TIME_LIMIT_MS)
+  /**
+   * Runs SQL against a fresh copy of the dataset (the bookstore, or `dataset` when given,
+   * such as a project's). The session database is not touched.
+   */
+  runScratch(sql: string, dataset?: string): Promise<ExecuteResult> {
+    return this.call<ExecuteResult>({ type: 'execute', sql, scratch: true, ...(dataset ? { dataset } : {}) }, QUERY_TIME_LIMIT_MS)
   }
 
   /** Restores the session database to the original dataset. */
@@ -111,8 +114,9 @@ export class SqlEngine {
     this.setState({ sessionVersion: this.state.sessionVersion + 1 })
   }
 
-  schema(): Promise<TableInfo[]> {
-    return this.call<TableInfo[]>({ type: 'schema' }, QUERY_TIME_LIMIT_MS)
+  /** The session database's tables, or those of another dataset (such as a project's) when one is named. */
+  schema(dataset?: string): Promise<TableInfo[]> {
+    return this.call<TableInfo[]>({ type: 'schema', ...(dataset ? { dataset } : {}) }, QUERY_TIME_LIMIT_MS)
   }
 
   /**

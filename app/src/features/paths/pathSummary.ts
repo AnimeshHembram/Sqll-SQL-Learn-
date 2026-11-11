@@ -64,7 +64,8 @@ export interface ChapterStatus {
   state: ChapterState
   /** Steps done out of the chapter's steps: lessons for a linked chapter, exercises plus the quiz for a written one. */
   steps: Count
-  kind: 'linked' | 'written' | 'planned'
+  /** "project" is a SQL Path project, whose steps are its tasks. */
+  kind: 'linked' | 'written' | 'planned' | 'project'
 }
 
 export function chapterStatus(chapter: PathChapter, progress: ProgressData, context: PathContext = LESSONS_ONLY): ChapterStatus {

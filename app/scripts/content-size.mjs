@@ -15,6 +15,11 @@
  * Only bytes that can be found verbatim in the build are taken out, so app code can never hide
  * behind content: object keys, punctuation, expected-result cells and strings shorter than
  * MIN_FIELD_LENGTH stay counted as app bytes.
+ *
+ * SQL Path projects (Workstream 2) are measured the same way, per project, against their own cap
+ * (projectLimitBytes): the project's text file, its solution file and its dataset file (all three hold
+ * nothing but that project's content), plus its summaries found verbatim in the path content.
+ * Offline, the brief, task text, solutions and dataset found verbatim are counted.
  */
 
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs'
@@ -135,4 +140,73 @@ export async function measureContent(root, firstDay) {
     })
   }
   return results.sort((a, b) => a.days[0] - b.days[0])
+}
+
+const briefFields = (text) => [
+  ...text.sections.map((section) => section.html),
+  ...Object.values(text.tasks).flatMap((task) => [task.descriptionHtml, task.starterSql, ...task.hints, ...task.objectives]),
+]
+const projectSummaryFields = (summary) => [summary.summary, ...summary.milestones.map((milestone) => milestone.goal), ...summary.tasks.map((task) => task.summary)]
+
+/** Measures each written SQL Path project. */
+export async function measureProjects(root) {
+  const { loadAllContent } = await import('../plugins/content/index.ts')
+  const { projectGroupId } = await import('../plugins/content/solutionGroups.ts')
+  const { projectTextId } = await import('../plugins/content/projectText.ts')
+  const contentDir = path.join(root, 'src', 'content')
+  const content = loadAllContent({
+    dir: path.join(contentDir, 'modules'),
+    datasetsDir: path.join(contentDir, 'datasets'),
+    challengesDir: path.join(contentDir, 'challenges'),
+    quizzesDir: path.join(contentDir, 'quizzes'),
+  })
+  const assetsDir = path.join(root, 'dist', 'assets')
+  const assetFiles = readdirSync(assetsDir)
+  const scripts = assetFiles.filter((file) => file.endsWith('.js'))
+  const offlineHtml = path.join(root, 'dist-offline', 'index.html')
+  const offlineText = existsSync(offlineHtml) ? readFileSync(offlineHtml, 'utf8') : ''
+  const fileFor = (prefix) => assetFiles.find((file) => file.startsWith(prefix) && file.endsWith('.js') && /^-[A-Za-z0-9_-]{8}\.js$/.test(file.slice(prefix.length - 1)))
+  const sizeOf = (file) => (file ? statSync(path.join(assetsDir, file)).size : 0)
+
+  // A dataset file is shared by every project that uses it, so it is counted once, with its first project.
+  const countedDatasets = new Set()
+  const results = []
+  for (const { summary, text } of content.pathProjects) {
+    const textFile = fileFor(`_${projectTextId(summary.pathId, summary.id).replace(':', '_')}-`)
+    const solutionFile = fileFor(`_${projectGroupId(summary.pathId, summary.id).replace(':', '_')}-`)
+    const datasetFile = countedDatasets.has(summary.dataset) ? undefined : fileFor(`${summary.dataset}-`)
+    countedDatasets.add(summary.dataset)
+    let summaryCredit = { bytes: 0, found: 0, total: 0 }
+    for (const file of scripts) {
+      if (file === textFile || file === solutionFile || file === datasetFile) continue
+      const credit = creditFields(readFileSync(path.join(assetsDir, file), 'utf8'), projectSummaryFields(summary))
+      if (credit.bytes > summaryCredit.bytes) summaryCredit = credit
+    }
+    const datasetText = readFileSync(path.join(contentDir, 'datasets', `${summary.dataset}.sql`), 'utf8')
+    const offlineCredit = creditFields(offlineText, [
+      ...briefFields(text),
+      ...projectSummaryFields(summary),
+      ...summary.tasks.flatMap((task) => solutionFields(content.solutions[task.id])),
+      ...(datasetFile ? [datasetText] : []),
+    ])
+    const textBytes = sizeOf(textFile)
+    const solutionBytes = sizeOf(solutionFile)
+    const datasetBytes = sizeOf(datasetFile)
+    results.push({
+      id: `${summary.pathId}/${summary.id}`,
+      taskCount: summary.tasks.length,
+      textFile,
+      solutionFile,
+      datasetFile,
+      textBytes,
+      solutionBytes,
+      datasetBytes,
+      summaryBytes: summaryCredit.bytes,
+      summaryFound: `${summaryCredit.found}/${summaryCredit.total}`,
+      projectBytes: textBytes + solutionBytes + datasetBytes + summaryCredit.bytes,
+      offlineBytes: offlineCredit.bytes,
+      offlineFound: `${offlineCredit.found}/${offlineCredit.total}`,
+    })
+  }
+  return results
 }

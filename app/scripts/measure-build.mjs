@@ -14,7 +14,8 @@
  *
  * Daily problems from Day 91 on (added after the baseline) are measured against
  * scripts/content-budget.json instead, per 30-day chunk, and taken out of the
- * dist/ and offline totals; see scripts/content-size.mjs.
+ * dist/ and offline totals; see scripts/content-size.mjs. SQL Path projects are
+ * measured there too, per project, against projectLimitBytes.
  */
 
 import { existsSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs'
@@ -150,8 +151,29 @@ if (existsSync(contentBudgetFile)) {
     else if (!ok) failures.push(`${label} is ${chunk.chunkBytes} bytes, over its limit of ${contentBudget.chunkLimitBytes}`)
   }
 }
-const distContentBytes = contentChunks.reduce((sum, chunk) => sum + chunk.chunkBytes, 0)
-const offlineContentBytes = contentChunks.reduce((sum, chunk) => sum + chunk.offlineBytes, 0)
+// SQL Path projects have their own cap per project (projectLimitBytes in content-budget.json).
+let projects = []
+if (existsSync(contentBudgetFile)) {
+  const contentBudget = JSON.parse(readFileSync(contentBudgetFile, 'utf8'))
+  const { measureProjects } = await import('./content-size.mjs')
+  projects = await measureProjects(root)
+  for (const project of projects) {
+    const label = `project: ${project.id} (${project.taskCount} tasks)`
+    const missing = !project.textFile || !project.solutionFile
+    const ok = !missing && contentBudget.projectLimitBytes !== undefined && project.projectBytes <= contentBudget.projectLimitBytes
+    rows.push(
+      `${ok ? 'ok  ' : 'OVER'} ${label.padEnd(46)} ${kb(project.projectBytes).padStart(10)}  limit ${kb(contentBudget.projectLimitBytes ?? 0)} ` +
+        `(text ${kb(project.textBytes)}, solutions ${kb(project.solutionBytes)}, dataset ${kb(project.datasetBytes)}, summaries ${kb(project.summaryBytes)})`,
+    )
+    if (missing) failures.push(`${project.id} has no text or solution chunk in dist/assets`)
+    else if (contentBudget.projectLimitBytes === undefined) failures.push('scripts/content-budget.json has no projectLimitBytes')
+    else if (!ok) failures.push(`${label} is ${project.projectBytes} bytes, over its limit of ${contentBudget.projectLimitBytes}`)
+  }
+}
+const distContentBytes =
+  contentChunks.reduce((sum, chunk) => sum + chunk.chunkBytes, 0) + projects.reduce((sum, project) => sum + project.projectBytes, 0)
+const offlineContentBytes =
+  contentChunks.reduce((sum, chunk) => sum + chunk.offlineBytes, 0) + projects.reduce((sum, project) => sum + project.offlineBytes, 0)
 const distAppBytes = current.distTotalBytes - distContentBytes
 const offlineAppBytes = current.offline.indexHtmlBytes - offlineContentBytes
 
@@ -167,7 +189,8 @@ for (const [name, entry] of Object.entries(budget.assets)) {
   if (!ok) failures.push(`${name} is ${now.bytes} bytes, over its limit of ${entry.limitBytes}`)
 }
 
-const withoutContent = (bytes, total) => (bytes === total ? '' : ` (${total} with Day ${contentChunks[0].days[0]}+ content)`)
+const contentLabel = [contentChunks.length > 0 ? `Day ${contentChunks[0].days[0]}+` : '', projects.length > 0 ? 'project' : ''].filter(Boolean).join(' and ')
+const withoutContent = (bytes, total) => (bytes === total ? '' : ` (${total} with ${contentLabel} content)`)
 const totalOk = distAppBytes <= budget.distTotal.limitBytes
 rows.push(`${totalOk ? 'ok  ' : 'OVER'} ${'dist/ total'.padEnd(46)} ${String(budget.distTotal.baselineBytes).padStart(10)} → ${String(distAppBytes).padStart(10)} bytes (limit +${budget.distTotal.limitPercent}%)${withoutContent(distAppBytes, current.distTotalBytes)}`)
 if (!totalOk) failures.push(`dist/ is ${distAppBytes} bytes without budgeted content, over its limit of ${budget.distTotal.limitBytes}`)

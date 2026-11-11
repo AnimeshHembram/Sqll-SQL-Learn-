@@ -50,3 +50,22 @@ export function ProblemRoute() {
     </Suspense>
   )
 }
+
+const ProjectPage = lazy(async () => ({ default: (await import('./ProjectPage.tsx')).ProjectPage }))
+const ProjectTaskPage = lazy(async () => ({ default: (await import('./ProjectTaskPage.tsx')).ProjectTaskPage }))
+
+export function ProjectRoute() {
+  return (
+    <Suspense fallback={loading}>
+      <ProjectPage />
+    </Suspense>
+  )
+}
+
+export function ProjectTaskRoute() {
+  return (
+    <Suspense fallback={loading}>
+      <ProjectTaskPage />
+    </Suspense>
+  )
+}

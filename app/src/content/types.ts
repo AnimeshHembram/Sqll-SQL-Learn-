@@ -103,6 +103,8 @@ export interface ChallengeSolution {
   /** Other correct queries, shown with the solution. */
   alternatives: string[]
   evaluation: EvaluationConfig
+  /** The dataset the queries run on, when it is not the bookstore (SQL Path projects have their own). */
+  dataset?: string
 }
 
 export const QUESTION_TYPES = ['multiple-choice', 'predict-output', 'find-the-error', 'choose-the-clause', 'conceptual'] as const
@@ -170,6 +172,52 @@ export type PathProblemSummary = Omit<PathProblem, keyof ProblemText>
 export interface ExpectedShape {
   columns: string[]
   rowCount: number
+}
+
+/** One step of a SQL Path project's analysis. */
+export interface ProjectMilestone {
+  id: string
+  title: string
+  /** One sentence: what the learner finds out in this milestone. */
+  goal: string
+}
+
+/** One task of a SQL Path project, checked like a daily problem against the project's own dataset. */
+export interface ProjectTask extends ContentChallenge {
+  pathId: string
+  projectId: string
+  milestoneId: string
+  /** 1, 2, 3… in the order the tasks are worked through. */
+  step: number
+  expected: ExpectedShape
+}
+
+/** What every SQL Path page knows about a project task. Its text loads with the project (plugins/content/projectText.ts). */
+export type ProjectTaskSummary = Omit<ProjectTask, keyof ProblemText>
+
+/** What every SQL Path page knows about a written project: enough for the path page, progress and navigation. */
+export interface PathProjectSummary {
+  id: string
+  pathId: string
+  title: string
+  order: number
+  summary: string
+  company: string
+  industry: string
+  /** The dataset file the project's tasks run on (src/content/datasets/<dataset>.sql). */
+  dataset: string
+  durationMinutes: number
+  milestones: ProjectMilestone[]
+  /** The capstone task, always the last step. */
+  finalTaskId: string
+  tasks: ProjectTaskSummary[]
+}
+
+/** The project brief and task text, loaded when one of the project's pages opens. */
+export interface ProjectText {
+  /** The brief's sections in file order, keyed by their "##" heading. */
+  sections: { title: string; html: string }[]
+  tasks: Record<string, ProblemText>
 }
 
 /** A chapter's end-of-chapter quiz. Its id is the chapter id. */

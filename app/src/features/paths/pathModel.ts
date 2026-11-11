@@ -132,6 +132,27 @@ export function recordExerciseAttempt(record: PathRecord, exerciseId: string, co
   return { ...record, exercises: { ...record.exercises, [exerciseId]: next } }
 }
 
+/**
+ * Notes that the learner is working on a project: the first attempt, hint or revealed solution
+ * sets startedAt. Nothing changes once the project has an entry.
+ */
+export function recordProjectStarted(record: PathRecord, projectId: string, now: Date): PathRecord {
+  if (record.projects[projectId]) return record
+  return { ...record, projects: { ...record.projects, [projectId]: { startedAt: now.toISOString(), completedAt: null } } }
+}
+
+/**
+ * Marks a project complete once every one of its tasks is solved (task progress is kept in
+ * `exercises`, keyed by task id). The first completion date is kept; a project never becomes
+ * incomplete again.
+ */
+export function recordProjectCompletion(record: PathRecord, projectId: string, taskIds: readonly string[], now: Date): PathRecord {
+  const current = record.projects[projectId]
+  if (current?.completedAt || taskIds.length === 0 || !taskIds.every((id) => record.exercises[id]?.solvedAt)) return record
+  const at = now.toISOString()
+  return { ...record, projects: { ...record.projects, [projectId]: { startedAt: current?.startedAt ?? at, completedAt: at } } }
+}
+
 export function recordExerciseHelp(record: PathRecord, exerciseId: string, help: { hintsUsed?: number; revealedSolution?: boolean }): PathRecord {
   const current = record.exercises[exerciseId] ?? { solvedAt: null, attempts: 0, hintsUsed: 0, revealedSolution: false }
   const next: PathExerciseProgress = {

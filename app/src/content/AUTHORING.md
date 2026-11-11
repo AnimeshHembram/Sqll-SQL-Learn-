@@ -252,7 +252,7 @@ SELECT genre, COUNT(*) FROM books GROUP BY genre;
 | `topic` | yes | Main SQL topic, such as `WHERE` or `Window functions`. The topic filter lists every topic used, in order of first appearance. |
 | `module` | no | The `id` of a learning module that teaches what the challenge needs. Shown as a link. |
 | `duration` | yes | Estimated minutes. |
-| `dataset` | yes | A file in `src/content/datasets/` without `.sql`. The browser's database worker currently loads `bookstore`. |
+| `dataset` | yes | A file in `src/content/datasets/` without `.sql`. Challenges, exercises and daily problems use `bookstore`; a SQL Path project's tasks use the project's own dataset, which the worker loads the first time one of its tasks runs. |
 | `tables` | yes | Tables the challenge uses, shown beside the editor. Each must exist in the dataset. |
 | `orderMatters` | yes | `true` only when the task asks for an order (and the solution has `ORDER BY`). Otherwise any row order is accepted. |
 | `checkColumnNames` | yes | `true` when the task names the columns; names must then match, ignoring capitals. `false` accepts any names but still requires the right number of columns, in the right positions. |
@@ -289,6 +289,25 @@ Daily problems are split once more for the page: the problem list (titles, topic
 expected result's shape) loads with the SQL Path pages, while each problem's task, starter query,
 hints and objectives load with their 30-day group when the problem is opened (see
 `plugins/content/problemText.ts`). The offline build includes every group inside its one file.
+
+### SQL Path projects
+
+A project is a folder `src/content/paths-content/projects/<path-id>/<project-id>/` with:
+
+- `project.md`: front matter `id` (the folder name, and one of the path's projects in
+  `src/content/paths/catalog.ts`), `title`, `order`, `summary`, `company`, `industry`, `dataset`,
+  `duration` (minutes), `milestones` (a list of `<id> | <title> | <goal>`, in order) and `finalTask`
+  (the id of the last task). The body has exactly these `##` sections, in order: Scenario, The
+  company, The problem, Objectives, The data, Business questions, Present your findings, Model
+  findings (shown once the project is complete) and What you accomplished (likewise).
+- `tasks/<nn>-<name>.md`: one task per file in the challenge format above. `order` is the step
+  (`<nn>`), `module` is the task's milestone id and `dataset` must be the project's dataset. Steps
+  run from 1 without gaps, in milestone order, every milestone has a task, and the final task is the
+  last step in the last milestone.
+
+Each task's explanation should say what the result means for the business and name a common
+mistake. The brief and task text load with the project's pages (`plugins/content/projectText.ts`);
+the solutions are one worker group per project.
 
 The solution is only revealed after the learner has submitted at least once or used every hint.
 

@@ -3,6 +3,10 @@
  * UI thread. Holds one session database, created from bookstore.sql, that keeps
  * the learner's changes until it is reset.
  *
+ * SQL Path projects have their own datasets. Each is loaded the first time one of
+ * its tasks runs (a separate file in the web build, inlined in the offline build),
+ * so the bookstore stays the only dataset most visits ever load.
+ *
  * It also evaluates challenge submissions. The reference queries are loaded
  * here, inside the worker, so they never pass through the page: the page sends
  * a challenge id and the learner's SQL, and gets back feedback and the learner's
@@ -30,6 +34,13 @@ import type {
   WorkerResponse,
 } from './protocol.ts'
 
+/** Every dataset except the bookstore, loaded on demand. Keyed by file path. */
+const otherDatasets = import.meta.glob<string>(['../../content/datasets/*.sql', '!../../content/datasets/bookstore.sql'], {
+  query: '?raw',
+  import: 'default',
+})
+const datasetText = new Map<string, Promise<string>>()
+
 let sqlJs: Promise<SqlJsStatic> | null = null
 let session: Database | null = null
 
@@ -39,10 +50,25 @@ function loadSqlJs(): Promise<SqlJsStatic> {
   return sqlJs
 }
 
-async function freshDatabase(): Promise<Database> {
-  const SQL = await loadSqlJs()
+/** The SQL that creates a dataset: the bookstore unless another dataset is named. */
+function datasetSql(dataset: string | undefined): Promise<string> {
+  if (!dataset || dataset === 'bookstore') return Promise.resolve(bookstoreSql)
+  let text = datasetText.get(dataset)
+  if (!text) {
+    const load = otherDatasets[`../../content/datasets/${dataset}.sql`]
+    if (!load) return Promise.reject(new Error(`There is no dataset "${dataset}".`))
+    text = load()
+    // A failed download (for example a lost connection) can be tried again.
+    text.catch(() => datasetText.delete(dataset))
+    datasetText.set(dataset, text)
+  }
+  return text
+}
+
+async function freshDatabase(dataset?: string): Promise<Database> {
+  const [SQL, seed] = await Promise.all([loadSqlJs(), datasetSql(dataset)])
   const database = new SQL.Database()
-  database.exec(bookstoreSql)
+  database.exec(seed)
   return database
 }
 
@@ -57,8 +83,8 @@ async function sessionDatabase(): Promise<Database> {
  * submission can never affect the practice database, the reference query or
  * the next submission.
  */
-async function isolatedRun(sql: string): Promise<ExecuteResult> {
-  const database = await freshDatabase()
+async function isolatedRun(sql: string, dataset?: string): Promise<ExecuteResult> {
+  const database = await freshDatabase(dataset)
   try {
     database.exec('PRAGMA query_only = ON')
     return execute(database, sql)
@@ -85,8 +111,8 @@ async function solutionFor(challengeId: string): Promise<ChallengeSolution | und
 async function evaluate(challengeId: string, sql: string): Promise<EvaluationResult> {
   const solution = await solutionFor(challengeId)
   if (!solution) throw new Error(`There is no challenge "${challengeId}".`)
-  const result = await isolatedRun(sql)
-  const reference = await isolatedRun(solution.sql)
+  const result = await isolatedRun(sql, solution.dataset)
+  const reference = await isolatedRun(solution.sql, solution.dataset)
   return { feedback: evaluateRun(toOutcome(result), toOutcome(reference), solution.evaluation), result }
 }
 
@@ -128,7 +154,7 @@ async function handle(request: WorkerRequest): Promise<unknown> {
     }
     case 'execute': {
       if (!request.scratch) return execute(await sessionDatabase(), request.sql)
-      const scratch = await freshDatabase()
+      const scratch = await freshDatabase(request.dataset)
       try {
         return execute(scratch, request.sql)
       } finally {
@@ -141,8 +167,15 @@ async function handle(request: WorkerRequest): Promise<unknown> {
       await sessionDatabase()
       return null
     }
-    case 'schema':
-      return readSchema(await sessionDatabase())
+    case 'schema': {
+      if (!request.dataset) return readSchema(await sessionDatabase())
+      const copy = await freshDatabase(request.dataset)
+      try {
+        return readSchema(copy)
+      } finally {
+        copy.close()
+      }
+    }
     case 'evaluate':
       return evaluate(request.challengeId, request.sql)
     case 'solution':

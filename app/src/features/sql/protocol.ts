@@ -74,10 +74,14 @@ export interface EvaluationResult {
 
 export type WorkerRequest =
   | { id: number; type: 'init' }
-  /** `scratch` runs against a fresh copy of the dataset and leaves the session database untouched. */
-  | { id: number; type: 'execute'; sql: string; scratch: boolean }
+  /**
+   * `scratch` runs against a fresh copy of the dataset and leaves the session database untouched.
+   * `dataset` (scratch runs only) names another dataset than the bookstore, such as a project's.
+   */
+  | { id: number; type: 'execute'; sql: string; scratch: boolean; dataset?: string }
   | { id: number; type: 'reset' }
-  | { id: number; type: 'schema' }
+  /** The session database's tables, or those of `dataset` (a fresh copy) when it is given. */
+  | { id: number; type: 'schema'; dataset?: string }
   /** Runs `sql` and the challenge's reference query, each on its own fresh read-only copy of the dataset, and compares them. */
   | { id: number; type: 'evaluate'; challengeId: string; sql: string }
   /** The solution, expected result and explanation, sent only when the learner chooses to see them. Null if unknown. */

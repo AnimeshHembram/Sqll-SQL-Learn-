@@ -1,8 +1,19 @@
 import { existsSync, readdirSync } from 'node:fs'
 import path from 'node:path'
-import type { ChallengeSolution, ContentModule, ExerciseKind, PathExercise, PathProblem, PathQuiz } from '../../src/content/types.ts'
+import type {
+  ChallengeSolution,
+  ContentModule,
+  ExerciseKind,
+  PathExercise,
+  PathProblem,
+  PathProjectSummary,
+  PathQuiz,
+  ProjectTask,
+  ProjectText,
+} from '../../src/content/types.ts'
 import { loadChallenges, type WrongAnswer } from './loadChallenges.ts'
 import { displayPath, loadContent } from './loadContent.ts'
+import { loadProjects } from './loadProjects.ts'
 import { loadQuizzes } from './loadQuizzes.ts'
 
 /**
@@ -17,6 +28,7 @@ import { loadQuizzes } from './loadQuizzes.ts'
  *   <root>/exercises/<path-id>/<chapter-id>/<n>-independent-<name>.md
  *   <root>/quizzes/<path-id>/<chapter-id>.md        the chapter quiz (quiz id = chapter id)
  *   <root>/problems/<path-id>/day-<nnn>-<name>.md   one daily problem, in challenge format
+ *   <root>/projects/<path-id>/<project-id>/...      one project (see loadProjects.ts)
  *
  * Daily problems must run from Day 1 with no gaps (at most 365), so "Days 1 to N
  * are written" is always true, and every problem's "order" must equal its day.
@@ -34,6 +46,10 @@ export interface PathContentResult {
   wrongAnswers: Record<string, WrongAnswer[]>
   sourceFiles: Record<string, string>
   quizzes: PathQuiz[]
+  /** Written projects: the summary every SQL Path page gets and the text loaded with the project. */
+  projects: { summary: PathProjectSummary; text: ProjectText }[]
+  /** Every project task with its full text (for the checks). */
+  projectTasks: ProjectTask[]
   errors: string[]
   files: string[]
 }
@@ -50,7 +66,19 @@ function folders(dir: string): string[] {
 }
 
 export function loadPathContent(root: string, datasetsDir: string, takenChallengeIds: ReadonlySet<string>): PathContentResult {
-  const result: PathContentResult = { modules: [], exercises: [], problems: [], solutions: {}, wrongAnswers: {}, sourceFiles: {}, quizzes: [], errors: [], files: [] }
+  const result: PathContentResult = {
+    modules: [],
+    exercises: [],
+    problems: [],
+    solutions: {},
+    wrongAnswers: {},
+    sourceFiles: {},
+    quizzes: [],
+    projects: [],
+    projectTasks: [],
+    errors: [],
+    files: [],
+  }
   if (!existsSync(root)) return result
 
   const chapters = loadContent(path.join(root, 'chapters'), datasetsDir)
@@ -150,6 +178,21 @@ export function loadPathContent(root: string, datasetsDir: string, takenChalleng
     })
   }
   result.problems.sort((a, b) => a.pathId.localeCompare(b.pathId) || a.day - b.day)
+
+  // --- Projects ------------------------------------------------------------------------------
+  const projects = loadProjects(
+    path.join(root, 'projects'),
+    datasetsDir,
+    new Set(chapterIds.keys()),
+    new Set([...takenChallengeIds, ...Object.keys(result.solutions)]),
+  )
+  result.errors.push(...projects.errors)
+  result.files.push(...projects.files)
+  result.projects = projects.projects
+  result.projectTasks = projects.tasks
+  Object.assign(result.solutions, projects.solutions)
+  Object.assign(result.wrongAnswers, projects.wrongAnswers)
+  Object.assign(result.sourceFiles, projects.sourceFiles)
 
   // --- Every chapter is complete ---------------------------------------------------------------
   for (const module of chapters.modules) {

@@ -1006,6 +1006,148 @@ try {
     assert.equal(await page.locator('[aria-label^="Day 211: "]').count(), 0)
   })
 
+  // --- Workstream 2: SQL Path projects ----------------------------------------------------------
+  const projectDir = fileURLToPath(new URL('../src/content/paths-content/projects/data-analyst/sales-performance-review/tasks/', import.meta.url))
+  const projectTasks = readdirSync(projectDir)
+    .sort()
+    .map((file) => {
+      const text = readFileSync(projectDir + file, 'utf8').replace(/\r\n/g, '\n')
+      return { id: /^id: (.+)$/m.exec(text)[1], solution: /## Solution\n\n```sql\n([\s\S]*?)```/.exec(text)[1] }
+    })
+  const typeQuery = async (page, card, sql) => {
+    await card.locator('.cm-content').click()
+    await page.keyboard.press('ControlOrMeta+A')
+    await page.keyboard.press('Delete')
+    await page.keyboard.insertText(sql)
+  }
+
+  await check('projects: the path page links the written project with its status; the overview shows the brief, the dataset tables and five milestones', async (page, context) => {
+    const requested = []
+    context.on('request', (request) => requested.push(request.url().replace(/^.*\/assets\//, '')))
+    await page.goto(`${base}/paths/data-analyst`)
+    const projects = page.getByRole('region', { name: 'Projects' })
+    const item = projects.locator('li').filter({ hasText: 'Sales performance review' })
+    await item.getByText('Not started').waitFor()
+    assert.match(await item.innerText(), /Kalaa Home · 12 tasks in 5 milestones · About 5 hours/)
+    assert.equal(await projects.getByText('Planned').count(), 2, 'the two projects not written yet stay planned')
+    assert.equal(await projects.getByRole('link').count(), 1, 'only the written project is a link')
+    assert.match(await page.locator('dl').innerText(), /Projects\s*1 of 3 ready, 0 complete/)
+    assert.ok(!requested.some((file) => file.includes('sql-learner-project-')), 'the path page does not download project text')
+
+    await projects.getByRole('link', { name: 'Sales performance review' }).click()
+    await page.getByRole('heading', { level: 1, name: 'Project 1: Sales performance review' }).waitFor()
+    await page.getByText('Not started yet. Read the brief').waitFor()
+    for (const title of ['Scenario', 'The company', 'The problem', 'Objectives', 'The data', 'Business questions', 'Milestones', 'Present your findings', 'Project summary']) {
+      await page.getByRole('heading', { level: 2, name: title, exact: true }).waitFor()
+    }
+    assert.equal(await page.getByRole('heading', { name: 'Model findings' }).count(), 0, 'the model findings wait until the project is complete')
+    const data = page.getByRole('region', { name: 'The data' })
+    for (const table of ['customers', 'products', 'orders', 'order_items', 'targets']) await data.getByText(table, { exact: true }).first().waitFor()
+    await data.getByText('revenue_target', { exact: true }).first().waitFor()
+    const milestones = page.locator('ol > li').filter({ has: page.getByRole('heading', { level: 3, name: /^Milestone \d/ }) })
+    assert.equal(await milestones.count(), 5)
+    await page.getByRole('link', { name: /^Final challenge\s*The 2024 regional scorecard$/ }).waitFor()
+    await page.getByRole('link', { name: 'Start: Task 1, Profile orders by year and status' }).waitFor()
+    assert.ok(requested.some((file) => /^_virtual_sql-learner-project-data-analyst-sales-performance-review-/.test(file)), 'the project text loads with the page')
+    assert.ok(requested.some((file) => /^kalaa-home-/.test(file)), 'the worker loads the project dataset for the tables')
+    assert.ok(!requested.some((file) => /sql-learner-(challenge-)?solutions/.test(file)), 'no solution is downloaded by reading the brief')
+  })
+
+  await check('projects: a task runs on the project dataset, is really checked, and attempts, hints and the solution are saved in the path record', async (page, context) => {
+    const requested = []
+    context.on('request', (request) => requested.push(request.url().replace(/^.*\/assets\//, '')))
+    await page.goto(`${base}/paths/data-analyst/projects/sales-performance-review/1`)
+    await page.getByRole('heading', { level: 1, name: 'Task 1: Profile orders by year and status' }).waitFor()
+    const schema = page.getByRole('region', { name: 'The table for this task' })
+    await schema.getByText('orders', { exact: true }).waitFor()
+    assert.equal(await schema.getByText('customers', { exact: true }).count(), 0, 'only the tables the task uses')
+    const card = page.locator('[data-exercise="spr-01-order-status-profile"]')
+    assert.equal(await card.locator('[data-expected-output]').innerText(), 'Expected output: 6 rows with the columns year, status, orders and share_pct, in this order.')
+
+    // Run query uses the Kalaa Home data, not the bookstore.
+    await typeQuery(page, card, 'SELECT name FROM products WHERE product_id = 1')
+    await card.getByRole('button', { name: 'Run query' }).click()
+    await card.getByText('Brass Diya Lamp Set').waitFor()
+    // The starter query is not accepted; a different correct query is.
+    await card.getByRole('button', { name: 'Reset query' }).click()
+    await card.getByRole('button', { name: 'Submit answer' }).click()
+    await card.locator('[data-feedback]').waitFor()
+    assert.notEqual(await card.locator('[data-feedback]').getAttribute('data-feedback'), 'correct')
+    await card.getByRole('button', { name: 'Show the first hint' }).click()
+    await typeQuery(
+      page,
+      card,
+      'WITH counts AS (SELECT substr(order_date, 1, 4) AS year, status, COUNT(*) AS orders FROM orders GROUP BY 1, 2) ' +
+        'SELECT year, status, orders, ROUND(orders * 100.0 / SUM(orders) OVER (PARTITION BY year), 1) AS share_pct FROM counts ORDER BY year, status',
+    )
+    await card.getByRole('button', { name: 'Submit answer' }).click()
+    await card.locator('[data-feedback="correct"]').waitFor()
+    await card.getByRole('button', { name: 'Compare with the solution' }).click()
+    await card.getByText(/What it tells the business/).waitFor()
+    await page.getByText(/^Solved on .*1 of 12 project tasks solved\./).waitFor()
+    const solutionChunks = requested.filter((file) => /sql-learner-(challenge-)?solutions/.test(file))
+    assert.equal(solutionChunks.length, 1, `one solution chunk (${solutionChunks.join(', ')})`)
+    assert.match(solutionChunks[0], /^_virtual_sql-learner-solutions-data-analyst-project-sales-performance-review-/)
+
+    const stored = await storedPaths(page)
+    const record = stored.paths['data-analyst']
+    const saved = record.exercises['spr-01-order-status-profile']
+    assert.equal(saved.attempts, 2)
+    assert.equal(saved.hintsUsed, 1)
+    assert.equal(saved.revealedSolution, true)
+    assert.ok(saved.solvedAt)
+    assert.ok(record.projects['sales-performance-review'].startedAt)
+    assert.equal(record.projects['sales-performance-review'].completedAt, null)
+    assert.deepEqual(record.problems, {}, 'daily problems are untouched')
+    assert.equal(stored.activePathId, null, 'working on a project does not change the current path')
+
+    // Reload keeps it; Next leads on; the overview and the path page show the progress.
+    await page.reload()
+    await page.getByText(/^Solved on /).waitFor()
+    await page.getByRole('navigation', { name: 'Task navigation' }).getByRole('link', { name: /Task 2: Clean up city names/ }).click()
+    await page.getByRole('heading', { level: 1, name: 'Task 2: Clean up city names' }).waitFor()
+    await page.goto(`${base}/paths/data-analyst/projects/sales-performance-review`)
+    await page.getByRole('link', { name: 'Continue: Task 2, Clean up city names' }).waitFor()
+    await page.getByText('1 of 12 tasks solved.', { exact: false }).waitFor()
+    await page.goto(`${base}/paths/data-analyst`)
+    await page.getByRole('region', { name: 'Projects' }).getByText('1 of 12 tasks done').waitFor()
+  })
+
+  await check('projects: solving the final task completes the project and opens the model findings and summary', async (page) => {
+    const at = '2026-11-10T09:00:00.000Z'
+    const solved = { solvedAt: at, attempts: 1, hintsUsed: 0, revealedSolution: false }
+    const seeded = {
+      version: 1,
+      activePathId: 'data-analyst',
+      paths: {
+        'data-analyst': {
+          startedAt: at, lastSelectedAt: at, chapters: {}, quizzes: {}, problems: {}, badges: {},
+          exercises: Object.fromEntries(projectTasks.slice(0, 11).map((task) => [task.id, solved])),
+          projects: { 'sales-performance-review': { startedAt: at, completedAt: null } },
+        },
+      },
+    }
+    await page.goto(`${base}/`)
+    await page.evaluate((value) => localStorage.setItem('sql-learner:paths:v1', JSON.stringify(value)), seeded)
+    await page.goto(`${base}/paths/data-analyst/projects/sales-performance-review/12`)
+    await page.getByRole('heading', { level: 1, name: 'Final challenge: The 2024 regional scorecard' }).waitFor()
+    const card = page.locator('[data-exercise="spr-12-regional-scorecard"]')
+    await typeQuery(page, card, projectTasks[11].solution)
+    await card.getByRole('button', { name: 'Submit answer' }).click()
+    await card.locator('[data-feedback="correct"]').waitFor()
+    await page.getByRole('link', { name: 'Project complete: see the model findings and your summary' }).click()
+    await page.getByText(/^Project complete on /).waitFor()
+    await page.getByRole('heading', { level: 2, name: 'Model findings' }).waitFor()
+    await page.getByRole('heading', { level: 2, name: 'What you accomplished' }).waitFor()
+    await page.getByText('Project complete', { exact: true }).waitFor()
+    const record = (await storedPaths(page)).paths['data-analyst']
+    assert.ok(record.projects['sales-performance-review'].completedAt)
+    assert.equal(record.projects['sales-performance-review'].startedAt, at, 'the start date is kept')
+    await page.goto(`${base}/paths/data-analyst`)
+    await page.getByRole('region', { name: 'Projects' }).getByText('Complete', { exact: true }).waitFor()
+    assert.match(await page.locator('dl').innerText(), /Projects\s*1 of 3 ready, 1 complete/)
+  })
+
   await check('settings: export, import and reset include SQL Path progress; reset also clears drafts', async (page) => {
     const pathsKey = 'sql-learner:paths:v1'
     const draftsKey = 'sql-learner:path-drafts:v1'

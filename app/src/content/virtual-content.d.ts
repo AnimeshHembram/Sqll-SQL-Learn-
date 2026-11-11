@@ -19,10 +19,18 @@ declare module 'virtual:sql-learner-path-content' {
   export const pathQuizzes: unknown
   /** The light part of every daily problem (no task text, starter query or hints). */
   export const pathProblems: unknown
+  /** Written projects without their brief and task text. */
+  export const pathProjects: unknown
 }
 
 // Daily-problem text, one group of 30 days at a time (see plugins/content/problemText.ts).
 declare module 'virtual:sql-learner-problem-text-index' {
   /** For each daily problem id: loads the group that holds its task, starter query, hints and objectives. */
   export const problemTextLoaders: Record<string, () => Promise<{ problemText: unknown }>>
+}
+
+// One SQL Path project's brief and task text per module (see plugins/content/projectText.ts).
+declare module 'virtual:sql-learner-project-index' {
+  /** For each "<path>/<project>": loads the project's brief and task text. */
+  export const projectLoaders: Record<string, () => Promise<{ projectText: unknown }>>
 }

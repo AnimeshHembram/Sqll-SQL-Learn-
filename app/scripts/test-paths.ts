@@ -20,7 +20,9 @@ import { test } from 'node:test'
 import { fileURLToPath } from 'node:url'
 import { loadAllContent } from '../plugins/content/index.ts'
 import { PROBLEM_TEXT_FIELDS, problemTextGroupId, problemTextGroups, splitProblem } from '../plugins/content/problemText.ts'
-import { DAYS_PER_CHUNK, problemGroupId, solutionGroups } from '../plugins/content/solutionGroups.ts'
+import { DAYS_PER_CHUNK, problemGroupId, projectGroupId, solutionGroups } from '../plugins/content/solutionGroups.ts'
+import { PROJECT_SECTIONS } from '../plugins/content/loadProjects.ts'
+import { projectTextId, splitTask } from '../plugins/content/projectText.ts'
 import {
   buildProgressFile,
   describePathProgress,
@@ -52,7 +54,10 @@ import {
   recordExerciseHelp,
   recordProblemAttempt,
   recordProblemHelp,
+  recordProjectCompletion,
+  recordProjectStarted,
 } from '../src/features/paths/pathModel.ts'
+import { projectProgress, projectStatus } from '../src/features/paths/projectSummary.ts'
 import {
   PROBLEM_DAYS,
   PROBLEM_MILESTONES,
@@ -634,7 +639,7 @@ test('the written Data Analyst problems keep their ids and days, so saved progre
 // --- Stage 3B: solutions load in groups, and the Days 91-120 batch ------------------------------
 
 test('every solution belongs to exactly one on-demand group; daily problems are grouped 30 days at a time', () => {
-  const groups = solutionGroups(content.challenges.map((challenge) => challenge.id), content.pathExercises, content.pathProblems)
+  const groups = solutionGroups(content.challenges.map((challenge) => challenge.id), content.pathExercises, content.pathProblems, content.pathProjectTasks)
   const seen = new Map<string, string>()
   for (const group of groups) {
     for (const id of group.ids) {
@@ -716,6 +721,7 @@ test('size budgets: app limits stay as recorded; content from Day 91 has its own
   const contentBudget = JSON.parse(readFileSync(path.join(root, 'scripts/content-budget.json'), 'utf8'))
   assert.equal(contentBudget.firstDay, 91, 'Days 1-90 were in the baseline and stay counted as app bytes')
   assert.equal(contentBudget.chunkLimitBytes, 150000)
+  assert.equal(contentBudget.projectLimitBytes, 200000, 'each SQL Path project has its own cap')
 })
 
 // --- Stage 3B batch 3: problem text in 30-day groups, and Days 151-180 ----------------------------------
@@ -810,4 +816,129 @@ test('Days 181-210 are a complete batch, with their own text and solution groups
   assert.deepEqual([...(group?.ids ?? [])].sort(), batch.map((problem) => problem.id).sort(), 'the solution chunk holds exactly Days 181-210')
   const textGroup = problemTextGroups(content.pathProblems).find((item) => item.moduleId === 'virtual:sql-learner-problem-text-data-analyst-days-181-210')
   assert.deepEqual([...(textGroup?.ids ?? [])].sort(), batch.map((problem) => problem.id).sort(), 'the text chunk holds exactly Days 181-210')
+})
+
+// --- Workstream 2: SQL Path projects ------------------------------------------------------------
+
+const salesReview = () => {
+  const project = content.pathProjects.find(({ summary }) => summary.pathId === 'data-analyst' && summary.id === 'sales-performance-review')
+  assert.ok(project, 'the Sales performance review project is written')
+  return project
+}
+
+test('projects: every written project is one of its path\'s catalogue projects, with the same title', () => {
+  assert.ok(content.pathProjects.length >= 1)
+  for (const { summary } of content.pathProjects) {
+    const path = CAREER_PATHS.find((candidate) => candidate.id === summary.pathId)
+    const planned = path?.projects.find((project) => project.id === summary.id)
+    assert.ok(planned, `${summary.pathId}/${summary.id} is in the catalogue`)
+    assert.equal(planned.title, summary.title)
+    assert.equal(summary.order, path!.projects.indexOf(planned) + 1, 'project order matches the catalogue')
+  }
+})
+
+test('projects: Sales performance review is complete: brief, milestones, 12 progressive tasks and a final challenge', () => {
+  const { summary, text } = salesReview()
+  assert.equal(summary.dataset, 'kalaa-home')
+  assert.deepEqual(text.sections.map((section) => section.title), [...PROJECT_SECTIONS], 'every brief section, in order')
+  for (const section of text.sections) assert.ok(section.html.length > 200, `"${section.title}" has real content`)
+  assert.deepEqual(summary.milestones.map((milestone) => milestone.id), ['know-the-data', 'revenue-and-growth', 'growth-drivers', 'customers-and-channels', 'final-challenge'])
+  assert.equal(summary.tasks.length, 12)
+  summary.tasks.forEach((task, index) => assert.equal(task.step, index + 1))
+  assert.equal(summary.finalTaskId, summary.tasks[11].id)
+  assert.equal(summary.tasks[11].milestoneId, 'final-challenge')
+  assert.equal(summary.tasks[0].difficulty, 'beginner', 'the project starts gently')
+  assert.equal(summary.tasks[11].difficulty, 'advanced', 'and ends with an advanced challenge')
+  const tasks = content.pathProjectTasks.filter((task) => task.projectId === summary.id)
+  assert.equal(tasks.length, 12)
+  for (const task of tasks) {
+    assert.match(task.id, /^spr-\d{2}-[a-z0-9-]+$/)
+    assert.equal(task.hints.length, 3, `${task.id} has three progressive hints`)
+    assert.ok(task.objectives.length > 0)
+    assert.ok(task.expected.rowCount > 0)
+    assert.ok(task.tables.length > 0)
+    const solution = content.solutions[task.id]
+    assert.equal(solution.dataset, 'kalaa-home', `${task.id} is checked on the project dataset`)
+    assert.match(solution.explanationHtml, /What it tells the business/, `${task.id} interprets its result`)
+    assert.match(solution.explanationHtml, /Common mistake/, `${task.id} names a common mistake`)
+    assert.ok((content.wrongAnswers[task.id] ?? []).length >= 2, `${task.id} has labelled wrong answers`)
+  }
+})
+
+test('projects: tasks keep their solutions in the worker and their text in the project module', () => {
+  const { summary, text } = salesReview()
+  const groups = solutionGroups([], [], [], content.pathProjectTasks)
+  const group = groups.find((item) => item.moduleId === projectGroupId('data-analyst', 'sales-performance-review'))
+  assert.equal(group?.moduleId, 'virtual:sql-learner-solutions-data-analyst-project-sales-performance-review')
+  assert.deepEqual(group.ids, summary.tasks.map((task) => task.id))
+  assert.equal(projectTextId('data-analyst', 'sales-performance-review'), 'virtual:sql-learner-project-data-analyst-sales-performance-review')
+  for (const task of content.pathProjectTasks.filter((item) => item.projectId === summary.id)) {
+    const listed = summary.tasks.find((item) => item.id === task.id)!
+    for (const field of PROBLEM_TEXT_FIELDS) assert.ok(!(field in listed), `${task.id}: ${field} is not in the light summary`)
+    assert.ok(!('sql' in listed) && !('explanationHtml' in listed), 'no solution in the summary')
+    assert.deepEqual({ ...listed, ...text.tasks[task.id] }, task, `${task.id}: summary + text give back the whole task`)
+    assert.deepEqual(splitTask(task).text, text.tasks[task.id])
+  }
+  assert.ok(!JSON.stringify(text).includes('"sql"'), 'the project text holds no reference queries')
+})
+
+test('projects: the Kalaa Home dataset has the documented tables, rows and data-quality issues', async () => {
+  const { readFileSync } = await import('node:fs')
+  const { DatabaseSync } = await import('node:sqlite')
+  const db = new DatabaseSync(':memory:')
+  db.exec(readFileSync(path.join(contentDir, 'datasets/kalaa-home.sql'), 'utf8'))
+  const count = (sql: string) => Number(Object.values(db.prepare(sql).get() as Record<string, unknown>)[0])
+  assert.equal(count('SELECT COUNT(*) FROM customers'), 343)
+  assert.equal(count('SELECT COUNT(*) FROM products'), 27)
+  assert.equal(count('SELECT COUNT(*) FROM orders'), 600)
+  assert.equal(count('SELECT COUNT(*) FROM order_items'), 971)
+  assert.equal(count('SELECT COUNT(*) FROM targets'), 16)
+  assert.equal(count("SELECT COUNT(*) FROM orders WHERE order_date NOT BETWEEN '2023-01-01' AND '2024-12-31'"), 0, 'two years of orders')
+  assert.ok(count("SELECT COUNT(*) FROM customers WHERE city IN ('Bangalore', 'Gurgaon')") > 0, 'old city names to clean')
+  assert.ok(count('SELECT COUNT(*) FROM customers WHERE city <> TRIM(city)') > 0, 'city names with extra spaces')
+  assert.ok(count('SELECT COUNT(*) FROM orders WHERE channel IS NULL') > 0, 'orders without a channel')
+  assert.equal(count('SELECT COUNT(*) FROM order_items AS i LEFT JOIN orders AS o ON o.order_id = i.order_id WHERE o.order_id IS NULL'), 0, 'every line has an order')
+  assert.equal(count('SELECT COUNT(*) FROM orders AS o LEFT JOIN customers AS c ON c.customer_id = o.customer_id WHERE c.customer_id IS NULL'), 0, 'every order has a customer')
+  db.close()
+})
+
+test('projects: progress is saved in the path record; a project completes once, when every task is solved', () => {
+  const { summary } = salesReview()
+  const ids = summary.tasks.map((task) => task.id)
+  const start = new Date('2026-11-01T10:00:00.000Z')
+  let data = selectPath(selectPath(emptyPathProgress(), 'software-engineer', start), 'data-analyst', start)
+  const otherBefore = JSON.stringify(data.paths['software-engineer'])
+  let record = data.paths['data-analyst']
+  assert.equal(projectStatus(projectProgress(summary, record)).state, 'not-started')
+
+  record = recordProjectStarted(record, summary.id, start)
+  record = recordExerciseHelp(record, ids[0], { hintsUsed: 2 })
+  record = recordProjectStarted(record, summary.id, new Date('2026-11-02T10:00:00.000Z'))
+  assert.equal(record.projects[summary.id].startedAt, start.toISOString(), 'the first start is kept')
+  record = recordExerciseAttempt(record, ids[0], false, start)
+  record = recordExerciseAttempt(record, ids[0], true, start)
+  let progress = projectProgress(summary, record)
+  assert.equal(progress.solved, 1)
+  assert.equal(progress.nextTask?.id, ids[1])
+  assert.equal(projectStatus(progress).state, 'in-progress')
+  assert.equal(progress.milestones[0].solved, 1)
+  assert.equal(recordProjectCompletion(record, summary.id, ids, start).projects[summary.id].completedAt, null, 'not complete with tasks left')
+
+  const done = new Date('2026-11-05T10:00:00.000Z')
+  for (const id of ids.slice(1)) record = recordExerciseAttempt(record, id, true, done)
+  record = recordProjectCompletion(record, summary.id, ids, done)
+  assert.equal(record.projects[summary.id].completedAt, done.toISOString())
+  const later = recordProjectCompletion(record, summary.id, ids, new Date('2026-12-01T10:00:00.000Z'))
+  assert.equal(later.projects[summary.id].completedAt, done.toISOString(), 'the first completion date is kept')
+  progress = projectProgress(summary, record)
+  assert.equal(progress.solved, 12)
+  assert.equal(progress.nextTask, undefined)
+  assert.ok(progress.milestones.every((milestone) => milestone.complete))
+  assert.equal(projectStatus(progress).state, 'complete')
+
+  data = updatePathRecord(data, 'data-analyst', () => record)
+  const saved = parsePathProgress(JSON.parse(JSON.stringify(data)))
+  assert.deepEqual(saved, data, 'project progress survives saving and loading')
+  assert.equal(JSON.stringify(saved!.paths['software-engineer']), otherBefore, 'other paths are untouched')
+  assert.equal(saved!.paths['data-analyst'].problems && Object.keys(saved!.paths['data-analyst'].problems).length, 0, 'daily problems are untouched')
 })

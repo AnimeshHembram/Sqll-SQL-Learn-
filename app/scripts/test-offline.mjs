@@ -232,6 +232,30 @@ try {
     await page.locator('[data-exercise="da-day-181"]').waitFor({ timeout: 15000 })
   })
 
+  await check('projects: the Sales performance review opens from disk, its dataset loads and a task is checked and saved', async () => {
+    await page.goto(`${appUrl}#/paths/data-analyst/projects/sales-performance-review`)
+    await page.getByRole('heading', { level: 1, name: 'Project 1: Sales performance review' }).waitFor({ timeout: 15000 })
+    await page.getByRole('region', { name: 'The data' }).getByText('order_items', { exact: true }).first().waitFor({ timeout: 15000 })
+    await page.getByRole('link', { name: 'Start: Task 1, Profile orders by year and status' }).click()
+    const card = page.locator('[data-exercise="spr-01-order-status-profile"]')
+    await card.waitFor({ timeout: 15000 })
+    await card.getByRole('button', { name: 'Submit answer' }).click()
+    await card.locator('[data-feedback]').waitFor({ timeout: 15000 })
+    assert.notEqual(await card.locator('[data-feedback]').getAttribute('data-feedback'), 'correct', 'the starter query is not accepted')
+    await card.locator('.cm-content').click()
+    await page.keyboard.press('ControlOrMeta+A')
+    await page.keyboard.press('Delete')
+    await page.keyboard.insertText(
+      'SELECT substr(order_date, 1, 4) AS year, status, COUNT(*) AS orders, ' +
+        'ROUND(100.0 * COUNT(*) / SUM(COUNT(*)) OVER (PARTITION BY substr(order_date, 1, 4)), 1) AS share_pct ' +
+        'FROM orders GROUP BY year, status ORDER BY year, status',
+    )
+    await card.getByRole('button', { name: 'Submit answer' }).click()
+    await card.locator('[data-feedback="correct"]').waitFor({ timeout: 15000 })
+    await page.reload()
+    await page.getByText(/^Solved on /).waitFor({ timeout: 15000 })
+  })
+
   await check('progress is saved: the lesson stays complete after reopening app/index.html', async () => {
     await page.goto(`${entryUrl}#/learn/sql-fundamentals/introduction-to-select`)
     await page.waitForURL(`${appUrl}#/learn/sql-fundamentals/introduction-to-select`)

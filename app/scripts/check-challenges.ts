@@ -1,5 +1,5 @@
 /**
- * Checks every challenge against real SQLite.
+ * Checks every challenge, SQL Path exercise, daily problem and project task against real SQLite.
  *
  *   npm run check:challenges
  *
@@ -71,7 +71,7 @@ failures.push(...loaded.errors)
 
 const { solutions, wrongAnswers, sourceFiles } = loaded
 // SQL Path exercises are evaluated exactly like challenges, so they are checked the same way.
-const challenges = [...loaded.challenges, ...loaded.pathExercises, ...loaded.pathProblems]
+const challenges = [...loaded.challenges, ...loaded.pathExercises, ...loaded.pathProblems, ...loaded.pathProjectTasks]
 
 let queriesChecked = 0
 
@@ -134,7 +134,7 @@ for (const challenge of challenges) {
 
 const wrongCount = Object.values(wrongAnswers).reduce((total, list) => total + list.length, 0)
 console.log(
-  `Checked ${loaded.challenges.length} challenges, ${loaded.pathExercises.length} SQL Path exercises and ${loaded.pathProblems.length} daily problems by running ${queriesChecked} queries in SQLite ` +
+  `Checked ${loaded.challenges.length} challenges, ${loaded.pathExercises.length} SQL Path exercises, ${loaded.pathProblems.length} daily problems and ${loaded.pathProjectTasks.length} project tasks by running ${queriesChecked} queries in SQLite ` +
     `(solutions, other accepted answers, ${wrongCount} wrong answers and starter queries).`,
 )
 if (failures.length > 0) {

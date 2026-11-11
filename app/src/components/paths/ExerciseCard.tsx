@@ -49,6 +49,8 @@ interface ExerciseCardProps {
   headingLevel?: 2 | 3
   /** The expected result's shape (daily problems), shown under the task. */
   expected?: ExpectedShape
+  /** The dataset Run query uses when it is not the bookstore (project tasks). Submissions use the task's own dataset. */
+  dataset?: string
 }
 
 /**
@@ -56,7 +58,7 @@ interface ExerciseCardProps {
  * like challenges (against the reference query, never shown until asked for),
  * and the result is saved in the exercise's own path record.
  */
-export function ExerciseCard({ exercise, label, saved, recorder, schema, engineFailed, headingLevel = 3, expected }: ExerciseCardProps) {
+export function ExerciseCard({ exercise, label, saved, recorder, schema, engineFailed, headingLevel = 3, expected, dataset }: ExerciseCardProps) {
   const save: ExerciseRecorder = recorder ?? {
     submitted: (correct) => recordPathExerciseSubmission(exercise.pathId, exercise.id, correct),
     hintsShown: (count) => recordPathExerciseHints(exercise.pathId, exercise.id, count),
@@ -98,7 +100,7 @@ export function ExerciseCard({ exercise, label, saved, recorder, schema, engineF
     setBusy(mode)
     try {
       if (mode === 'run') {
-        const result = await challengeEngine.runScratch(sql)
+        const result = await challengeEngine.runScratch(sql, dataset)
         if (requestId === latest.current) setOutcome({ kind: 'run', result })
       } else {
         const { feedback, result } = await challengeEngine.evaluate(exercise.id, sql)

@@ -5,6 +5,7 @@ import { loadContent } from './loadContent.ts'
 import { loadPathContent } from './loadPathContent.ts'
 import { loadQuizzes } from './loadQuizzes.ts'
 import { PROBLEM_TEXT_GROUP_PREFIX, PROBLEM_TEXT_INDEX_MODULE_ID, problemTextGroups, splitProblem } from './problemText.ts'
+import { PROJECT_INDEX_MODULE_ID, PROJECT_TEXT_PREFIX, projectKey, projectTextId } from './projectText.ts'
 import { CHALLENGE_SOLUTIONS_MODULE_ID, SOLUTION_GROUP_PREFIX, solutionGroups } from './solutionGroups.ts'
 
 /**
@@ -26,6 +27,8 @@ import { CHALLENGE_SOLUTIONS_MODULE_ID, SOLUTION_GROUP_PREFIX, solutionGroups } 
  * Daily problems are split the same way for the page: `virtual:sql-learner-path-content`
  * lists every problem without its text, and `virtual:sql-learner-problem-text-index`
  * loads the task, starter query and hints 30 days at a time (see problemText.ts).
+ * Projects likewise: their summaries are in the path content, and each project's brief and task
+ * text is its own module behind `virtual:sql-learner-project-index` (see projectText.ts).
  */
 
 export const CONTENT_MODULE_ID = 'virtual:sql-learner-content'
@@ -38,6 +41,8 @@ const isSolutionGroup = (id: string) => id === CHALLENGE_SOLUTIONS_MODULE_ID || 
 const RESOLVED_PATH_ID = '\0' + PATH_CONTENT_MODULE_ID
 const RESOLVED_TEXT_INDEX_ID = '\0' + PROBLEM_TEXT_INDEX_MODULE_ID
 const isTextGroup = (id: string) => id.startsWith(PROBLEM_TEXT_GROUP_PREFIX) && id !== PROBLEM_TEXT_INDEX_MODULE_ID
+const RESOLVED_PROJECT_INDEX_ID = '\0' + PROJECT_INDEX_MODULE_ID
+const isProjectText = (id: string) => id.startsWith(PROJECT_TEXT_PREFIX) && id !== PROJECT_INDEX_MODULE_ID
 
 interface ContentPluginOptions {
   /** Absolute path to the folder that holds the module folders. */
@@ -71,6 +76,9 @@ export function loadAllContent({ dir, datasetsDir, challengesDir, quizzesDir, pa
     pathExercises: paths.exercises,
     pathQuizzes: paths.quizzes,
     pathProblems: paths.problems,
+    pathProjects: paths.projects,
+    /** Every project task with its full text, for the checks. */
+    pathProjectTasks: paths.projectTasks,
     errors: [...content.errors, ...challenges.errors, ...quizzes.errors, ...paths.errors],
     files: [...new Set([...content.files, ...challenges.files, ...quizzes.files, ...paths.files])],
   }
@@ -103,8 +111,9 @@ export function contentPlugin(options: ContentPluginOptions): Plugin {
     // The content modules, the solution index and every solution group (the worker's modules live in the same graph in dev).
     for (const module of graph.idToModuleMap.values()) {
       const id = module.id ?? ''
-      const resolvedGroup = id.startsWith('\0') && (isSolutionGroup(id.slice(1)) || isTextGroup(id.slice(1)))
-      if (id === RESOLVED_ID || id === RESOLVED_INDEX_ID || id === RESOLVED_PATH_ID || id === RESOLVED_TEXT_INDEX_ID || resolvedGroup) {
+      const resolvedGroup = id.startsWith('\0') && (isSolutionGroup(id.slice(1)) || isTextGroup(id.slice(1)) || isProjectText(id.slice(1)))
+      const index = [RESOLVED_ID, RESOLVED_INDEX_ID, RESOLVED_PATH_ID, RESOLVED_TEXT_INDEX_ID, RESOLVED_PROJECT_INDEX_ID].includes(id)
+      if (index || resolvedGroup) {
         graph.invalidateModule(module)
       }
     }
@@ -121,20 +130,23 @@ export function contentPlugin(options: ContentPluginOptions): Plugin {
       if (id === PATH_CONTENT_MODULE_ID) return RESOLVED_PATH_ID
       if (id === PROBLEM_TEXT_INDEX_MODULE_ID) return RESOLVED_TEXT_INDEX_ID
       if (isTextGroup(id)) return '\0' + id
+      if (id === PROJECT_INDEX_MODULE_ID) return RESOLVED_PROJECT_INDEX_ID
+      if (isProjectText(id)) return '\0' + id
       return undefined
     },
 
     load(id) {
       const groupId = id.startsWith('\0') && isSolutionGroup(id.slice(1)) ? id.slice(1) : null
       const textGroupId = id.startsWith('\0') && isTextGroup(id.slice(1)) ? id.slice(1) : null
-      if (id !== RESOLVED_ID && id !== RESOLVED_INDEX_ID && id !== RESOLVED_PATH_ID && id !== RESOLVED_TEXT_INDEX_ID && !groupId && !textGroupId) {
-        return undefined
-      }
-      const { modules, challenges, solutions, quizzes, pathModules, pathExercises, pathQuizzes, pathProblems, errors, files } = loadAllContent(options)
+      const projectTextModule = id.startsWith('\0') && isProjectText(id.slice(1)) ? id.slice(1) : null
+      const known = [RESOLVED_ID, RESOLVED_INDEX_ID, RESOLVED_PATH_ID, RESOLVED_TEXT_INDEX_ID, RESOLVED_PROJECT_INDEX_ID].includes(id)
+      if (!known && !groupId && !textGroupId && !projectTextModule) return undefined
+      const { modules, challenges, solutions, quizzes, pathModules, pathExercises, pathQuizzes, pathProblems, pathProjects, pathProjectTasks, errors, files } =
+        loadAllContent(options)
       for (const file of files) this.addWatchFile(file)
       lastLoadFailed = errors.length > 0
       if (lastLoadFailed) this.error(formatErrors(errors))
-      const groups = solutionGroups(challenges.map((challenge) => challenge.id), pathExercises, pathProblems)
+      const groups = solutionGroups(challenges.map((challenge) => challenge.id), pathExercises, pathProblems, pathProjectTasks)
       if (id === RESOLVED_INDEX_ID) {
         // One loader per group; each id points at its group's loader.
         const loaders = groups.map((group, index) => `const g${index} = () => import(${JSON.stringify(group.moduleId)});`)
@@ -160,6 +172,17 @@ export function contentPlugin(options: ContentPluginOptions): Plugin {
         const subset = Object.fromEntries(group.ids.map((problemId) => [problemId, splitProblem(byId.get(problemId)!).text]))
         return `export const problemText = ${JSON.stringify(subset)};`
       }
+      if (id === RESOLVED_PROJECT_INDEX_ID) {
+        const loaders = pathProjects.map(
+          ({ summary }) => `  ${JSON.stringify(projectKey(summary.pathId, summary.id))}: () => import(${JSON.stringify(projectTextId(summary.pathId, summary.id))})`,
+        )
+        return `export const projectLoaders = {\n${loaders.join(',\n')}\n};`
+      }
+      if (projectTextModule) {
+        const project = pathProjects.find(({ summary }) => projectTextId(summary.pathId, summary.id) === projectTextModule)
+        if (!project) this.error(`There is no project "${projectTextModule}".`)
+        return `export const projectText = ${JSON.stringify(project.text)};`
+      }
       if (id === RESOLVED_PATH_ID) {
         return [
           `export const pathModules = ${JSON.stringify(pathModules)};`,
@@ -167,6 +190,8 @@ export function contentPlugin(options: ContentPluginOptions): Plugin {
           `export const pathQuizzes = ${JSON.stringify(pathQuizzes)};`,
           // Without the task text, starter query and hints: those load per 30 days (problemText.ts).
           `export const pathProblems = ${JSON.stringify(pathProblems.map((problem) => splitProblem(problem).summary))};`,
+          // Without the brief and task text: those load with the project (projectText.ts).
+          `export const pathProjects = ${JSON.stringify(pathProjects.map((project) => project.summary))};`,
         ].join('\n')
       }
       return [

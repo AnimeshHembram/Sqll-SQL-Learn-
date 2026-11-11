@@ -11,9 +11,11 @@ import { ProgressBar } from '../components/ui/ProgressBar.tsx'
 import { lessonPath } from '../content/index.ts'
 import { PROBLEMS_PER_PATH, findPath } from '../content/paths/catalog.ts'
 import { chapterUrl, pathContext, pathProblemList, problemsUrl } from '../content/paths/chapters.ts'
+import { pathProjectList, projectUrl } from '../content/paths/projects.ts'
 import { choosePath, usePathProgress } from '../features/paths/pathStore.ts'
 import { nextStep, pathChapterCount } from '../features/paths/pathSummary.ts'
 import { solvedCount } from '../features/paths/problemSummary.ts'
+import { projectDuration, projectProgress, projectStatus } from '../features/paths/projectSummary.ts'
 import { useProgress } from '../features/progress/progressStore.ts'
 import { NotFoundPage } from './NotFoundPage.tsx'
 import styles from './PathPage.module.css'
@@ -38,6 +40,8 @@ export function PathPage() {
   const previous = paths.activePathId && !isCurrent ? findPath(paths.activePathId) : undefined
   const problemIds = pathProblemList(path.id).map((problem) => problem.id)
   const problemsSolved = solvedCount(problemIds, record)
+  const writtenProjects = pathProjectList(path.id)
+  const projectsComplete = writtenProjects.filter((project) => record?.projects[project.id]?.completedAt).length
 
   const select = () => {
     const saved = choosePath(path.id)
@@ -104,7 +108,11 @@ export function PathPage() {
         </div>
         <div>
           <dt>Projects</dt>
-          <dd>{path.projects.length} planned</dd>
+          <dd>
+            {writtenProjects.length > 0
+              ? `${writtenProjects.length} of ${path.projects.length} ready, ${projectsComplete} complete`
+              : `${path.projects.length} planned`}
+          </dd>
         </div>
         <div className={styles.progress}>
           <dt>Your progress</dt>
@@ -134,17 +142,28 @@ export function PathPage() {
       </p>
       <Roadmap path={path} progress={progress} context={context} />
 
-      <Card title="Projects" description="Three real-world projects that bring the path together." className={styles.projects}>
+      <Card title="Projects" description="Three real-world projects that bring the path together. Each one is a complete analysis on its own dataset, worked through in milestones." className={styles.projects}>
         <ul className={styles.projectList}>
-          {path.projects.map((project) => (
-            <li key={project.id} className={styles.project}>
-              <div className={styles.projectHead}>
-                <h3 className={styles.projectTitle}>{project.title}</h3>
-                <ChapterState status={PLANNED} />
-              </div>
-              <p className={styles.projectSummary}>{project.summary}</p>
-            </li>
-          ))}
+          {path.projects.map((project) => {
+            const written = writtenProjects.find((candidate) => candidate.id === project.id)
+            return (
+              <li key={project.id} className={styles.project} data-ready={written ? 'true' : undefined}>
+                <div className={styles.projectHead}>
+                  <h3 className={styles.projectTitle}>
+                    {written ? <Link to={projectUrl(path.id, project.id)}>{project.title}</Link> : project.title}
+                  </h3>
+                  <ChapterState status={written ? projectStatus(projectProgress(written, record)) : PLANNED} />
+                </div>
+                <p className={styles.projectSummary}>{project.summary}</p>
+                {written && (
+                  <p className={styles.projectMeta}>
+                    {written.company} · {written.tasks.length} tasks in {written.milestones.length} milestones ·{' '}
+                    {projectDuration(written.durationMinutes)}
+                  </p>
+                )}
+              </li>
+            )
+          })}
         </ul>
       </Card>
     </>

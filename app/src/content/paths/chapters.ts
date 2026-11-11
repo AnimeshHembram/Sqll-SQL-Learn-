@@ -1,6 +1,6 @@
-import { pathExercises, pathModules, pathProblems, pathQuizzes } from 'virtual:sql-learner-path-content'
+import { pathExercises, pathModules, pathProblems, pathProjects, pathQuizzes } from 'virtual:sql-learner-path-content'
 import { lessonPath } from '../index.ts'
-import type { ContentLesson, ContentModule, PathExercise, PathProblemSummary, PathQuiz } from '../types.ts'
+import type { ContentLesson, ContentModule, PathExercise, PathProblemSummary, PathProjectSummary, PathQuiz } from '../types.ts'
 import { pathUrl, type CareerPath, type PathChapter } from './catalog.ts'
 import type { PathRecord } from '../../features/paths/pathModel.ts'
 import type { PathContext } from '../../features/paths/pathSummary.ts'
@@ -16,6 +16,8 @@ const EXERCISES = pathExercises as readonly PathExercise[]
 const QUIZZES = pathQuizzes as readonly PathQuiz[]
 // Without their text: a problem's page loads that with loadProblem() (problemText.ts).
 const PROBLEMS = pathProblems as readonly PathProblemSummary[]
+/** Written projects, without their brief and task text (see projects.ts). */
+export const PROJECTS = pathProjects as readonly PathProjectSummary[]
 
 export function findChapterContent(pathId: string, chapterId: string): ContentLesson | undefined {
   return MODULES.find((module) => module.id === pathId)?.lessons.find((lesson) => lesson.id === chapterId)

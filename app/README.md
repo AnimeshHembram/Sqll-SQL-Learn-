@@ -191,6 +191,8 @@ src/
 | `/paths/:pathId/:chapterId` | A written SQL Path chapter, with its exercises and quiz |
 | `/paths/:pathId/problems` | Daily SQL problems: progress, streak, milestones and all 365 days |
 | `/paths/:pathId/problems/:day` | One daily problem (Day 1 to 365; unwritten days say so) |
+| `/paths/:pathId/projects/:projectId` | A SQL Path project: brief, data, milestones and summary |
+| `/paths/:pathId/projects/:projectId/:step` | One project task (the last one is the final challenge) |
 | `/practice`   | Practice      |
 | `/challenges` | Challenges (filters: `?difficulty=beginner&topic=WHERE&status=unsolved`) |
 | `/challenges/:challengeId` | Challenge |
@@ -218,7 +220,8 @@ src/
   - the 20 most recent lessons completed, challenges solved and quizzes finished.
 - `paths:v1` — SQL Path progress, one record per career path: the current path, chapters completed,
   chapter exercises and quizzes, daily problems (attempts, hints, revealed solutions, first solve),
-  and milestone badges. Saved only once a path is chosen or an exercise or problem is attempted.
+  project tasks (saved like chapter exercises, by task id) with each project's start and completion
+  dates, and milestone badges. Saved only once a path is chosen or an exercise or problem is attempted.
 - `path-drafts:v1` — unsubmitted queries in SQL Path exercises and daily problems, so a learner who
   leaves a page finds their query where they left it. At most 200 drafts are kept. Drafts are not
   progress and are never exported.
@@ -277,6 +280,27 @@ and takes them out of the dist/ and offline totals, whose limits in `scripts/siz
 - **Saved:** attempts, first solve, most hints shown, whether the solution was revealed, and
   milestone badges; drafts are kept separately. The streak counts calendar days with at least one
   first solve.
+
+## SQL Path projects
+
+Each career path has three real-world projects (listed in `src/content/paths/catalog.ts`). A
+written project is a complete analysis on its own dataset, worked through in milestones and
+finished with a final challenge. The Data Analyst path has its first project so far:
+**Sales performance review** (Kalaa Home, an online home-décor retailer; 12 tasks in 5 milestones,
+dataset `src/content/datasets/kalaa-home.sql`). The other projects stay labelled Planned until written.
+
+- **Content:** `src/content/paths-content/projects/<path-id>/<project-id>/project.md` (the brief) and
+  `tasks/<nn>-<name>.md` (one task per file, in the challenge format). See `src/content/AUTHORING.md`.
+- **Checked like challenges:** `npm run check:challenges` runs every task's solution, other accepted
+  answers, wrong answers and starter query against the project dataset.
+- **Loaded on demand:** the path pages know each project's milestones and task list; the brief and task
+  text load with the project's pages, the solutions are one worker group per project, and the worker
+  loads the project's dataset the first time one of its tasks runs. The offline build embeds all of it.
+- **Saved:** task attempts, hints, revealed solutions and first solve in the path's own record
+  (`exercises`, keyed by task id), plus the project's start date and the date every task was first
+  solved. Model findings and a summary of what was accomplished open once the project is complete.
+- **Size:** each project (text, solutions, dataset) has its own cap of 200 kB in
+  `scripts/content-budget.json`, and is taken out of the dist/ and offline totals like daily problems.
 
 ## Challenge evaluation
 
