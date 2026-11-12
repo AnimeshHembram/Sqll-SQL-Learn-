@@ -256,6 +256,19 @@ try {
     await page.getByText(/^Solved on /).waitFor({ timeout: 15000 })
   })
 
+  await check('projects: the Customer retention study opens from disk, loads its own dataset and checks a task', async () => {
+    await page.goto(`${appUrl}#/paths/data-analyst/projects/customer-retention-study/1`)
+    const card = page.locator('[data-exercise="crs-01-monthly-revenue"]')
+    await card.waitFor({ timeout: 15000 })
+    await page.getByRole('region', { name: 'The table for this task' }).getByText('payments', { exact: true }).waitFor({ timeout: 15000 })
+    await card.locator('.cm-content').click()
+    await page.keyboard.press('ControlOrMeta+A')
+    await page.keyboard.press('Delete')
+    await page.keyboard.insertText("SELECT billing_month AS month, COUNT(DISTINCT customer_id) AS paying_customers, SUM(amount) AS revenue FROM payments WHERE status = 'paid' GROUP BY 1 ORDER BY 1")
+    await card.getByRole('button', { name: 'Submit answer' }).click()
+    await card.locator('[data-feedback="correct"]').waitFor({ timeout: 15000 })
+  })
+
   await check('progress is saved: the lesson stays complete after reopening app/index.html', async () => {
     await page.goto(`${entryUrl}#/learn/sql-fundamentals/introduction-to-select`)
     await page.waitForURL(`${appUrl}#/learn/sql-fundamentals/introduction-to-select`)

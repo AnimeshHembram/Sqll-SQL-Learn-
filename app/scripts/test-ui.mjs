@@ -1029,9 +1029,9 @@ try {
     const item = projects.locator('li').filter({ hasText: 'Sales performance review' })
     await item.getByText('Not started').waitFor()
     assert.match(await item.innerText(), /Kalaa Home · 12 tasks in 5 milestones · About 5 hours/)
-    assert.equal(await projects.getByText('Planned').count(), 2, 'the two projects not written yet stay planned')
-    assert.equal(await projects.getByRole('link').count(), 1, 'only the written project is a link')
-    assert.match(await page.locator('dl').innerText(), /Projects\s*1 of 3 ready, 0 complete/)
+    assert.equal(await projects.getByText('Planned').count(), 1, 'the project not written yet stays planned')
+    assert.equal(await projects.getByRole('link').count(), 2, 'only the written projects are links')
+    assert.match(await page.locator('dl').innerText(), /Projects\s*2 of 3 ready, 0 complete/)
     assert.ok(!requested.some((file) => file.includes('sql-learner-project-')), 'the path page does not download project text')
 
     await projects.getByRole('link', { name: 'Sales performance review' }).click()
@@ -1145,7 +1145,85 @@ try {
     assert.equal(record.projects['sales-performance-review'].startedAt, at, 'the start date is kept')
     await page.goto(`${base}/paths/data-analyst`)
     await page.getByRole('region', { name: 'Projects' }).getByText('Complete', { exact: true }).waitFor()
-    assert.match(await page.locator('dl').innerText(), /Projects\s*1 of 3 ready, 1 complete/)
+    assert.match(await page.locator('dl').innerText(), /Projects\s*2 of 3 ready, 1 complete/)
+  })
+
+  const retentionDir = fileURLToPath(new URL('../src/content/paths-content/projects/data-analyst/customer-retention-study/tasks/', import.meta.url))
+  const retentionTasks = readdirSync(retentionDir)
+    .sort()
+    .map((file) => {
+      const text = readFileSync(retentionDir + file, 'utf8').replace(/\r\n/g, '\n')
+      return { id: /^id: (.+)$/m.exec(text)[1], solution: /## Solution\n\n```sql\n([\s\S]*?)```/.exec(text)[1] }
+    })
+
+  await check('projects: the Customer retention study runs on its own dataset, and its progress is kept apart from Project 1', async (page, context) => {
+    const requested = []
+    context.on('request', (request) => requested.push(request.url().replace(/^.*\/assets\//, '')))
+    await page.goto(`${base}/paths/data-analyst`)
+    const item = page.getByRole('region', { name: 'Projects' }).locator('li').filter({ hasText: 'Customer retention study' })
+    await item.getByText('Not started').waitFor()
+    assert.match(await item.innerText(), /Rasoi Crate · 13 tasks in 5 milestones/)
+    await item.getByRole('link', { name: 'Customer retention study' }).click()
+    await page.getByRole('heading', { level: 1, name: 'Project 2: Customer retention study' }).waitFor()
+    const data = page.getByRole('region', { name: 'The data' })
+    for (const table of ['customers', 'plans', 'payments', 'cancellations', 'support_tickets', 'marketing_spend']) await data.getByText(table, { exact: true }).first().waitFor()
+    assert.equal(await page.locator('ol > li').filter({ has: page.getByRole('heading', { level: 3, name: /^Milestone \d/ }) }).count(), 5)
+    assert.ok(requested.some((file) => /^rasoi-crate-/.test(file)), 'the worker loads the Rasoi Crate dataset')
+    assert.ok(!requested.some((file) => /^kalaa-home-/.test(file)), 'the Project 1 dataset is not downloaded')
+
+    await page.getByRole('link', { name: 'Start: Task 1, Monthly paying customers and revenue' }).click()
+    const card = page.locator('[data-exercise="crs-01-monthly-revenue"]')
+    await card.waitFor()
+    assert.equal(await card.locator('[data-expected-output]').innerText(), 'Expected output: 18 rows with the columns month, paying_customers and revenue, in this order.')
+    await card.getByRole('button', { name: 'Submit answer' }).click()
+    await card.locator('[data-feedback]').waitFor()
+    assert.notEqual(await card.locator('[data-feedback]').getAttribute('data-feedback'), 'correct', 'the starter query is not accepted')
+    await typeQuery(page, card, "SELECT billing_month AS month, COUNT(DISTINCT customer_id) AS paying_customers, SUM(amount) AS revenue FROM payments WHERE status = 'paid' GROUP BY 1 ORDER BY 1")
+    await card.getByRole('button', { name: 'Submit answer' }).click()
+    await card.locator('[data-feedback="correct"]').waitFor()
+    await page.getByText(/^Solved on .*1 of 13 project tasks solved\./).waitFor()
+    const solutionChunks = requested.filter((file) => /sql-learner-(challenge-)?solutions/.test(file))
+    assert.deepEqual(solutionChunks.map((file) => file.replace(/-[\w-]{8}\.js$/, '')), ['_virtual_sql-learner-solutions-data-analyst-project-customer-retention-study'])
+
+    const record = (await storedPaths(page)).paths['data-analyst']
+    assert.ok(record.exercises['crs-01-monthly-revenue'].solvedAt)
+    assert.ok(record.projects['customer-retention-study'].startedAt)
+    assert.equal(record.projects['sales-performance-review'], undefined, 'Project 1 has no entry')
+    assert.equal(Object.keys(record.exercises).filter((id) => id.startsWith('spr-')).length, 0, 'no Project 1 task is touched')
+    await page.goto(`${base}/paths/data-analyst`)
+    await page.getByRole('region', { name: 'Projects' }).locator('li').filter({ hasText: 'Customer retention study' }).getByText('1 of 13 tasks done').waitFor()
+    await page.getByRole('region', { name: 'Projects' }).locator('li').filter({ hasText: 'Sales performance review' }).getByText('Not started').waitFor()
+  })
+
+  await check('projects: the retention study completes on its final challenge, while a finished Project 1 stays complete', async (page) => {
+    const at = '2026-11-10T09:00:00.000Z'
+    const solved = { solvedAt: at, attempts: 1, hintsUsed: 0, revealedSolution: false }
+    const seeded = {
+      version: 1,
+      activePathId: 'data-analyst',
+      paths: {
+        'data-analyst': {
+          startedAt: at, lastSelectedAt: at, chapters: {}, quizzes: {}, problems: {}, badges: {},
+          exercises: Object.fromEntries([...projectTasks, ...retentionTasks.slice(0, 12)].map((task) => [task.id, solved])),
+          projects: { 'sales-performance-review': { startedAt: at, completedAt: at }, 'customer-retention-study': { startedAt: at, completedAt: null } },
+        },
+      },
+    }
+    await page.goto(`${base}/`)
+    await page.evaluate((value) => localStorage.setItem('sql-learner:paths:v1', JSON.stringify(value)), seeded)
+    await page.goto(`${base}/paths/data-analyst/projects/customer-retention-study/13`)
+    await page.getByRole('heading', { level: 1, name: 'Final challenge: The acquisition channel scorecard' }).waitFor()
+    const card = page.locator('[data-exercise="crs-13-channel-scorecard"]')
+    await typeQuery(page, card, retentionTasks[12].solution)
+    await card.getByRole('button', { name: 'Submit answer' }).click()
+    await card.locator('[data-feedback="correct"]').waitFor()
+    await page.getByRole('link', { name: 'Project complete: see the model findings and your summary' }).click()
+    await page.getByRole('heading', { level: 2, name: 'Model findings' }).waitFor()
+    const record = (await storedPaths(page)).paths['data-analyst']
+    assert.ok(record.projects['customer-retention-study'].completedAt)
+    assert.equal(record.projects['sales-performance-review'].completedAt, at, 'Project 1 keeps its own completion date')
+    await page.goto(`${base}/paths/data-analyst`)
+    assert.match(await page.locator('dl').innerText(), /Projects\s*2 of 3 ready, 2 complete/)
   })
 
   await check('settings: export, import and reset include SQL Path progress; reset also clears drafts', async (page) => {

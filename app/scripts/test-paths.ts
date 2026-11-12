@@ -942,3 +942,74 @@ test('projects: progress is saved in the path record; a project completes once, 
   assert.equal(JSON.stringify(saved!.paths['software-engineer']), otherBefore, 'other paths are untouched')
   assert.equal(saved!.paths['data-analyst'].problems && Object.keys(saved!.paths['data-analyst'].problems).length, 0, 'daily problems are untouched')
 })
+
+// --- Workstream 2, Project 2: Customer retention study ------------------------------------------
+
+test('projects: Customer retention study is complete, on its own dataset, and independent of Project 1', () => {
+  const project = content.pathProjects.find(({ summary }) => summary.pathId === 'data-analyst' && summary.id === 'customer-retention-study')
+  assert.ok(project, 'the Customer retention study is written')
+  const { summary, text } = project
+  assert.equal(summary.dataset, 'rasoi-crate')
+  assert.equal(summary.order, 2)
+  assert.notEqual(summary.company, salesReview().summary.company, 'a different company from Project 1')
+  assert.deepEqual(text.sections.map((section) => section.title), [...PROJECT_SECTIONS])
+  assert.deepEqual(summary.milestones.map((milestone) => milestone.id), ['know-the-data', 'cohorts', 'who-stays', 'revenue-and-churn', 'final-challenge'])
+  assert.equal(summary.tasks.length, 13)
+  summary.tasks.forEach((task, index) => assert.equal(task.step, index + 1))
+  assert.equal(summary.finalTaskId, 'crs-13-channel-scorecard')
+  assert.equal(summary.tasks[12].milestoneId, 'final-challenge')
+  const tasks = content.pathProjectTasks.filter((task) => task.projectId === summary.id)
+  for (const task of tasks) {
+    assert.match(task.id, /^crs-\d{2}-[a-z0-9-]+$/)
+    assert.equal(task.hints.length, 3)
+    assert.ok(task.expected.rowCount > 0)
+    const solution = content.solutions[task.id]
+    assert.equal(solution.dataset, 'rasoi-crate', `${task.id} is checked on the Rasoi Crate data`)
+    assert.match(solution.explanationHtml, /What it tells the business/)
+    assert.match(solution.explanationHtml, /Common mistake/)
+    assert.ok((content.wrongAnswers[task.id] ?? []).length >= 2)
+  }
+  // Each project has its own solution group; no task id is shared between projects.
+  const groups = solutionGroups([], [], [], content.pathProjectTasks)
+  assert.deepEqual(groups.find((group) => group.moduleId === projectGroupId('data-analyst', 'customer-retention-study'))?.ids, summary.tasks.map((task) => task.id))
+  assert.deepEqual(groups.find((group) => group.moduleId === projectGroupId('data-analyst', 'sales-performance-review'))?.ids, salesReview().summary.tasks.map((task) => task.id), 'Project 1 is unchanged')
+  const first = new Set(salesReview().summary.tasks.map((task) => task.id))
+  assert.ok(summary.tasks.every((task) => !first.has(task.id)))
+})
+
+test('projects: the Rasoi Crate dataset has the documented tables, rows and traps', async () => {
+  const { readFileSync } = await import('node:fs')
+  const { DatabaseSync } = await import('node:sqlite')
+  const db = new DatabaseSync(':memory:')
+  db.exec(readFileSync(path.join(contentDir, 'datasets/rasoi-crate.sql'), 'utf8'))
+  const count = (sql: string) => Number(Object.values(db.prepare(sql).get() as Record<string, unknown>)[0])
+  assert.equal(count('SELECT COUNT(*) FROM customers'), 383)
+  assert.equal(count('SELECT COUNT(*) FROM plans'), 4)
+  assert.equal(count('SELECT COUNT(*) FROM payments'), 1638)
+  assert.equal(count('SELECT COUNT(*) FROM cancellations'), 231)
+  assert.equal(count('SELECT COUNT(*) FROM support_tickets'), 170)
+  assert.equal(count('SELECT COUNT(*) FROM marketing_spend'), 90)
+  assert.equal(count("SELECT COUNT(*) FROM payments WHERE billing_month NOT BETWEEN '2024-01' AND '2025-06'"), 0, 'January 2024 to June 2025')
+  assert.ok(count("SELECT COUNT(*) FROM (SELECT customer_id, billing_month FROM payments GROUP BY 1, 2 HAVING SUM(status = 'failed') > 0 AND SUM(status = 'paid') > 0)") > 0, 'failed attempts retried in the same month')
+  assert.ok(count("SELECT COUNT(*) FROM customers AS c WHERE NOT EXISTS (SELECT 1 FROM payments AS p WHERE p.customer_id = c.customer_id AND p.status = 'paid')") > 0, 'signups who never paid')
+  assert.ok(count("SELECT COUNT(*) FROM payments WHERE status = 'paid' AND amount = 0") > 0, 'free first boxes')
+  assert.equal(count("SELECT COUNT(*) FROM (SELECT customer_id, billing_month FROM payments WHERE status = 'paid' GROUP BY 1, 2 HAVING COUNT(*) > 1)"), 0, 'at most one paid payment per customer and month')
+  assert.equal(count('SELECT COUNT(*) FROM payments AS p LEFT JOIN customers AS c ON c.customer_id = p.customer_id WHERE c.customer_id IS NULL'), 0)
+  db.close()
+})
+
+test('projects: progress in two projects is kept apart in the same path record', () => {
+  const retention = content.pathProjects.find(({ summary }) => summary.id === 'customer-retention-study')!.summary
+  const sales = salesReview().summary
+  const now = new Date('2026-11-12T10:00:00.000Z')
+  let record = selectPath(emptyPathProgress(), 'data-analyst', now).paths['data-analyst']
+  for (const task of sales.tasks) record = recordExerciseAttempt(record, task.id, true, now)
+  record = recordProjectCompletion(recordProjectStarted(record, sales.id, now), sales.id, sales.tasks.map((task) => task.id), now)
+  record = recordProjectStarted(record, retention.id, now)
+  record = recordExerciseAttempt(record, retention.tasks[0].id, true, now)
+  record = recordProjectCompletion(record, retention.id, retention.tasks.map((task) => task.id), now)
+  assert.equal(projectStatus(projectProgress(sales, record)).state, 'complete')
+  assert.equal(projectStatus(projectProgress(retention, record)).state, 'in-progress')
+  assert.equal(projectProgress(retention, record).solved, 1)
+  assert.equal(record.projects[retention.id].completedAt, null)
+})

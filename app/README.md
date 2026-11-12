@@ -285,9 +285,14 @@ and takes them out of the dist/ and offline totals, whose limits in `scripts/siz
 
 Each career path has three real-world projects (listed in `src/content/paths/catalog.ts`). A
 written project is a complete analysis on its own dataset, worked through in milestones and
-finished with a final challenge. The Data Analyst path has its first project so far:
-**Sales performance review** (Kalaa Home, an online home-décor retailer; 12 tasks in 5 milestones,
-dataset `src/content/datasets/kalaa-home.sql`). The other projects stay labelled Planned until written.
+finished with a final challenge. The Data Analyst path has two projects so far:
+
+- **Sales performance review**: Kalaa Home, an online home-décor retailer; 12 tasks in 5 milestones,
+  dataset `src/content/datasets/kalaa-home.sql`.
+- **Customer retention study**: Rasoi Crate, a meal-kit subscription company; cohorts, retention,
+  churn and acquisition cost in 13 tasks over 5 milestones, dataset `src/content/datasets/rasoi-crate.sql`.
+
+The other projects stay labelled Planned until written.
 
 - **Content:** `src/content/paths-content/projects/<path-id>/<project-id>/project.md` (the brief) and
   `tasks/<nn>-<name>.md` (one task per file, in the challenge format). See `src/content/AUTHORING.md`.
