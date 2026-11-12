@@ -1029,9 +1029,9 @@ try {
     const item = projects.locator('li').filter({ hasText: 'Sales performance review' })
     await item.getByText('Not started').waitFor()
     assert.match(await item.innerText(), /Kalaa Home · 12 tasks in 5 milestones · About 5 hours/)
-    assert.equal(await projects.getByText('Planned').count(), 1, 'the project not written yet stays planned')
-    assert.equal(await projects.getByRole('link').count(), 2, 'only the written projects are links')
-    assert.match(await page.locator('dl').innerText(), /Projects\s*2 of 3 ready, 0 complete/)
+    assert.equal(await projects.getByText('Planned').count(), 0, 'all three projects are written')
+    assert.equal(await projects.getByRole('link').count(), 3, 'every written project is a link')
+    assert.match(await page.locator('dl').innerText(), /Projects\s*3 of 3 ready, 0 complete/)
     assert.ok(!requested.some((file) => file.includes('sql-learner-project-')), 'the path page does not download project text')
 
     await projects.getByRole('link', { name: 'Sales performance review' }).click()
@@ -1145,7 +1145,7 @@ try {
     assert.equal(record.projects['sales-performance-review'].startedAt, at, 'the start date is kept')
     await page.goto(`${base}/paths/data-analyst`)
     await page.getByRole('region', { name: 'Projects' }).getByText('Complete', { exact: true }).waitFor()
-    assert.match(await page.locator('dl').innerText(), /Projects\s*2 of 3 ready, 1 complete/)
+    assert.match(await page.locator('dl').innerText(), /Projects\s*3 of 3 ready, 1 complete/)
   })
 
   const retentionDir = fileURLToPath(new URL('../src/content/paths-content/projects/data-analyst/customer-retention-study/tasks/', import.meta.url))
@@ -1167,6 +1167,7 @@ try {
     await page.getByRole('heading', { level: 1, name: 'Project 2: Customer retention study' }).waitFor()
     const data = page.getByRole('region', { name: 'The data' })
     for (const table of ['customers', 'plans', 'payments', 'cancellations', 'support_tickets', 'marketing_spend']) await data.getByText(table, { exact: true }).first().waitFor()
+    await data.getByText('1638 rows').waitFor() // the table browser, read from the project dataset in the worker
     assert.equal(await page.locator('ol > li').filter({ has: page.getByRole('heading', { level: 3, name: /^Milestone \d/ }) }).count(), 5)
     assert.ok(requested.some((file) => /^rasoi-crate-/.test(file)), 'the worker loads the Rasoi Crate dataset')
     assert.ok(!requested.some((file) => /^kalaa-home-/.test(file)), 'the Project 1 dataset is not downloaded')
@@ -1223,7 +1224,105 @@ try {
     assert.ok(record.projects['customer-retention-study'].completedAt)
     assert.equal(record.projects['sales-performance-review'].completedAt, at, 'Project 1 keeps its own completion date')
     await page.goto(`${base}/paths/data-analyst`)
-    assert.match(await page.locator('dl').innerText(), /Projects\s*2 of 3 ready, 2 complete/)
+    assert.match(await page.locator('dl').innerText(), /Projects\s*3 of 3 ready, 2 complete/)
+  })
+
+  const funnelDir = fileURLToPath(new URL('../src/content/paths-content/projects/data-analyst/marketing-funnel-analysis/tasks/', import.meta.url))
+  const funnelTasks = readdirSync(funnelDir)
+    .sort()
+    .map((file) => {
+      const text = readFileSync(funnelDir + file, 'utf8').replace(/\r\n/g, '\n')
+      return { id: /^id: (.+)$/m.exec(text)[1], solution: /## Solution\n\n```sql\n([\s\S]*?)```/.exec(text)[1] }
+    })
+
+  await check('projects: the Marketing funnel analysis runs on its own dataset; its progress is separate from the other projects and the daily problems', async (page, context) => {
+    const requested = []
+    context.on('request', (request) => requested.push(request.url().replace(/^.*\/assets\//, '')))
+    const at = '2026-11-10T09:00:00.000Z'
+    const seeded = {
+      version: 1,
+      activePathId: 'data-analyst',
+      paths: {
+        'data-analyst': {
+          startedAt: at, lastSelectedAt: at, chapters: {}, quizzes: {}, badges: {},
+          problems: { 'da-day-001': { solvedAt: at, attempts: 1, hintsUsed: 0, revealedSolution: false } },
+          exercises: { [retentionTasks[0].id]: { solvedAt: at, attempts: 1, hintsUsed: 0, revealedSolution: false } },
+          projects: { 'customer-retention-study': { startedAt: at, completedAt: null } },
+        },
+      },
+    }
+    await page.goto(`${base}/`)
+    await page.evaluate((value) => localStorage.setItem('sql-learner:paths:v1', JSON.stringify(value)), seeded)
+    const before = await storedPaths(page)
+    await page.goto(`${base}/paths/data-analyst/projects/marketing-funnel-analysis`)
+    await page.getByRole('heading', { level: 1, name: 'Project 3: Marketing funnel analysis' }).waitFor()
+    const data = page.getByRole('region', { name: 'The data' })
+    for (const table of ['sessions', 'events', 'orders', 'campaigns', 'courses']) await data.getByText(table, { exact: true }).first().waitFor()
+    await data.getByText('1265 rows').waitFor() // the table browser, read from the project dataset in the worker
+    assert.equal(await page.locator('ol > li').filter({ has: page.getByRole('heading', { level: 3, name: /^Milestone \d/ }) }).count(), 5)
+    assert.ok(requested.some((file) => /^vidya-loop-/.test(file)), 'the worker loads the Vidya Loop dataset')
+    assert.ok(!requested.some((file) => /^(kalaa-home|rasoi-crate)-/.test(file)), 'the other project datasets are not downloaded')
+
+    await page.getByRole('link', { name: 'Start: Task 1, Weekly traffic' }).click()
+    const card = page.locator('[data-exercise="mfa-01-weekly-traffic"]')
+    await card.waitFor()
+    assert.equal(await card.locator('[data-expected-output]').innerText(), 'Expected output: 12 rows with the columns week_start, sessions, visitors and mobile_pct, in this order.')
+    await card.getByRole('button', { name: 'Submit answer' }).click()
+    await card.locator('[data-feedback]').waitFor()
+    assert.notEqual(await card.locator('[data-feedback]').getAttribute('data-feedback'), 'correct', 'the starter query is not accepted')
+    await typeQuery(page, card, "SELECT date(session_date, 'weekday 0', '-6 days') AS week_start, COUNT(*) AS sessions, COUNT(DISTINCT visitor_id) AS visitors, ROUND(SUM(CASE WHEN device = 'mobile' THEN 1 ELSE 0 END) * 100.0 / COUNT(*), 1) AS mobile_pct FROM sessions GROUP BY 1 ORDER BY 1")
+    await card.getByRole('button', { name: 'Submit answer' }).click()
+    await card.locator('[data-feedback="correct"]').waitFor()
+    await page.getByText(/^Solved on .*1 of 12 project tasks solved\./).waitFor()
+    const solutionChunks = requested.filter((file) => /sql-learner-(challenge-)?solutions/.test(file))
+    assert.deepEqual(solutionChunks.map((file) => file.replace(/-[\w-]{8}\.js$/, '')), ['_virtual_sql-learner-solutions-data-analyst-project-marketing-funnel-analysis'])
+
+    const record = (await storedPaths(page)).paths['data-analyst']
+    assert.ok(record.exercises['mfa-01-weekly-traffic'].solvedAt)
+    assert.ok(record.projects['marketing-funnel-analysis'].startedAt)
+    assert.deepEqual(record.problems, before.paths['data-analyst'].problems, 'daily problem progress is untouched')
+    assert.deepEqual(record.projects['customer-retention-study'], before.paths['data-analyst'].projects['customer-retention-study'], 'Project 2 is untouched')
+    assert.deepEqual(record.exercises[retentionTasks[0].id], before.paths['data-analyst'].exercises[retentionTasks[0].id])
+    await page.goto(`${base}/paths/data-analyst`)
+    const items = page.getByRole('region', { name: 'Projects' }).locator('li')
+    await items.filter({ hasText: 'Marketing funnel analysis' }).getByText('1 of 12 tasks done').waitFor()
+    await items.filter({ hasText: 'Customer retention study' }).getByText('1 of 13 tasks done').waitFor()
+    await items.filter({ hasText: 'Sales performance review' }).getByText('Not started').waitFor()
+  })
+
+  await check('projects: the funnel analysis completes on its final challenge and all three projects can be complete together', async (page) => {
+    const at = '2026-11-10T09:00:00.000Z'
+    const solved = { solvedAt: at, attempts: 1, hintsUsed: 0, revealedSolution: false }
+    const seeded = {
+      version: 1,
+      activePathId: 'data-analyst',
+      paths: {
+        'data-analyst': {
+          startedAt: at, lastSelectedAt: at, chapters: {}, quizzes: {}, problems: {}, badges: {},
+          exercises: Object.fromEntries([...projectTasks, ...retentionTasks, ...funnelTasks.slice(0, 11)].map((task) => [task.id, solved])),
+          projects: {
+            'sales-performance-review': { startedAt: at, completedAt: at },
+            'customer-retention-study': { startedAt: at, completedAt: at },
+            'marketing-funnel-analysis': { startedAt: at, completedAt: null },
+          },
+        },
+      },
+    }
+    await page.goto(`${base}/`)
+    await page.evaluate((value) => localStorage.setItem('sql-learner:paths:v1', JSON.stringify(value)), seeded)
+    await page.goto(`${base}/paths/data-analyst/projects/marketing-funnel-analysis/12`)
+    await page.getByRole('heading', { level: 1, name: 'Final challenge: The acquisition channel scorecard' }).waitFor()
+    const card = page.locator('[data-exercise="mfa-12-acquisition-scorecard"]')
+    await typeQuery(page, card, funnelTasks[11].solution)
+    await card.getByRole('button', { name: 'Submit answer' }).click()
+    await card.locator('[data-feedback="correct"]').waitFor()
+    await page.getByRole('link', { name: 'Project complete: see the model findings and your summary' }).click()
+    await page.getByRole('heading', { level: 2, name: 'Model findings' }).waitFor()
+    await page.getByRole('heading', { level: 2, name: 'What you accomplished' }).waitFor()
+    const record = (await storedPaths(page)).paths['data-analyst']
+    assert.ok(record.projects['marketing-funnel-analysis'].completedAt)
+    await page.goto(`${base}/paths/data-analyst`)
+    assert.match(await page.locator('dl').innerText(), /Projects\s*3 of 3 ready, 3 complete/)
   })
 
   await check('settings: export, import and reset include SQL Path progress; reset also clears drafts', async (page) => {

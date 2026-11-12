@@ -269,6 +269,19 @@ try {
     await card.locator('[data-feedback="correct"]').waitFor({ timeout: 15000 })
   })
 
+  await check('projects: the Marketing funnel analysis opens from disk, loads its own dataset and checks a task', async () => {
+    await page.goto(`${appUrl}#/paths/data-analyst/projects/marketing-funnel-analysis/1`)
+    const card = page.locator('[data-exercise="mfa-01-weekly-traffic"]')
+    await card.waitFor({ timeout: 15000 })
+    await page.getByRole('region', { name: 'The table for this task' }).getByText('sessions', { exact: true }).waitFor({ timeout: 15000 })
+    await card.locator('.cm-content').click()
+    await page.keyboard.press('ControlOrMeta+A')
+    await page.keyboard.press('Delete')
+    await page.keyboard.insertText("SELECT date(session_date, 'weekday 0', '-6 days') AS week_start, COUNT(*) AS sessions, COUNT(DISTINCT visitor_id) AS visitors, ROUND(100.0 * SUM(device = 'mobile') / COUNT(*), 1) AS mobile_pct FROM sessions GROUP BY 1 ORDER BY 1")
+    await card.getByRole('button', { name: 'Submit answer' }).click()
+    await card.locator('[data-feedback="correct"]').waitFor({ timeout: 15000 })
+  })
+
   await check('progress is saved: the lesson stays complete after reopening app/index.html', async () => {
     await page.goto(`${entryUrl}#/learn/sql-fundamentals/introduction-to-select`)
     await page.waitForURL(`${appUrl}#/learn/sql-fundamentals/introduction-to-select`)

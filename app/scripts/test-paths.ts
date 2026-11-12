@@ -1013,3 +1013,57 @@ test('projects: progress in two projects is kept apart in the same path record',
   assert.equal(projectProgress(retention, record).solved, 1)
   assert.equal(record.projects[retention.id].completedAt, null)
 })
+
+// --- Workstream 2, Project 3: Marketing funnel analysis -----------------------------------------
+
+test('projects: Marketing funnel analysis is complete, on its own dataset, and the three projects are independent', () => {
+  const project = content.pathProjects.find(({ summary }) => summary.pathId === 'data-analyst' && summary.id === 'marketing-funnel-analysis')
+  assert.ok(project, 'the Marketing funnel analysis is written')
+  const { summary, text } = project
+  assert.equal(summary.dataset, 'vidya-loop')
+  assert.equal(summary.order, 3)
+  assert.deepEqual(text.sections.map((section) => section.title), [...PROJECT_SECTIONS])
+  assert.deepEqual(summary.milestones.map((milestone) => milestone.id), ['traffic-and-tracking', 'funnel', 'channels', 'experiment', 'final-challenge'])
+  assert.equal(summary.tasks.length, 12)
+  assert.equal(summary.finalTaskId, 'mfa-12-acquisition-scorecard')
+  for (const task of content.pathProjectTasks.filter((item) => item.projectId === summary.id)) {
+    assert.match(task.id, /^mfa-\d{2}-[a-z0-9-]+$/)
+    assert.equal(task.hints.length, 3)
+    const solution = content.solutions[task.id]
+    assert.equal(solution.dataset, 'vidya-loop', `${task.id} is checked on the Vidya Loop data`)
+    assert.match(solution.explanationHtml, /What it tells the business/)
+    assert.match(solution.explanationHtml, /Common mistake/)
+    assert.ok((content.wrongAnswers[task.id] ?? []).length >= 2)
+  }
+  const projects = content.pathProjects.filter(({ summary: item }) => item.pathId === 'data-analyst')
+  assert.deepEqual(projects.map(({ summary: item }) => item.id), ['sales-performance-review', 'customer-retention-study', 'marketing-funnel-analysis'])
+  assert.equal(new Set(projects.map(({ summary: item }) => item.dataset)).size, 3, 'three different datasets')
+  assert.equal(new Set(projects.map(({ summary: item }) => item.company)).size, 3, 'three different companies')
+  const ids = projects.flatMap(({ summary: item }) => item.tasks.map((task) => task.id))
+  assert.equal(new Set(ids).size, ids.length, 'no task id is shared between projects')
+  const groups = solutionGroups([], [], [], content.pathProjectTasks)
+  for (const { summary: item } of projects) {
+    assert.deepEqual(groups.find((group) => group.moduleId === projectGroupId('data-analyst', item.id))?.ids, item.tasks.map((task) => task.id))
+  }
+})
+
+test('projects: the Vidya Loop dataset has the documented tables, rows and tracking issues', async () => {
+  const { readFileSync } = await import('node:fs')
+  const { DatabaseSync } = await import('node:sqlite')
+  const db = new DatabaseSync(':memory:')
+  db.exec(readFileSync(path.join(contentDir, 'datasets/vidya-loop.sql'), 'utf8'))
+  const count = (sql: string) => Number(Object.values(db.prepare(sql).get() as Record<string, unknown>)[0])
+  assert.equal(count('SELECT COUNT(*) FROM sessions'), 1265)
+  assert.equal(count('SELECT COUNT(DISTINCT visitor_id) FROM sessions'), 900)
+  assert.equal(count('SELECT COUNT(*) FROM events'), 2027)
+  assert.equal(count('SELECT COUNT(*) FROM orders'), 141)
+  assert.equal(count('SELECT COUNT(*) FROM campaigns'), 9)
+  assert.equal(count('SELECT COUNT(*) FROM courses'), 4)
+  assert.equal(count("SELECT COUNT(*) FROM sessions WHERE session_date NOT BETWEEN '2025-01-06' AND '2025-03-30'"), 0, 'twelve weeks')
+  assert.equal(count("SELECT COUNT(*) FROM sessions WHERE (variant IS NULL) <> (session_date < '2025-02-17')"), 0, 'variants only during the test')
+  assert.equal(count('SELECT COUNT(*) - (SELECT COUNT(*) FROM (SELECT DISTINCT session_id, step FROM events)) FROM events'), 67, 'duplicate events')
+  assert.equal(count("SELECT COUNT(*) FROM (SELECT session_id FROM events GROUP BY session_id HAVING MAX(step = 'purchase') = 1 AND MAX(step = 'checkout') = 0)"), 9, 'purchases without a checkout event')
+  assert.equal(count("SELECT COUNT(*) FROM orders AS o WHERE NOT EXISTS (SELECT 1 FROM events AS e WHERE e.session_id = o.session_id AND e.step = 'purchase')"), 0, 'every order has a purchase event')
+  assert.equal(count('SELECT COUNT(*) FROM (SELECT visitor_id FROM sessions GROUP BY visitor_id HAVING COUNT(DISTINCT device) > 1)'), 0, 'one device per visitor')
+  db.close()
+})
