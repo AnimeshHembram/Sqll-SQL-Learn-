@@ -823,24 +823,27 @@ try {
     assert.doesNotMatch(await reset.innerText(), /challenge/i)
   })
 
-  await check('daily problems: the dashboard shows 365 days, only written days open, and the path page links to it', async (page) => {
+  await check('daily problems: the dashboard shows all 365 written days, unwritten days explain themselves, and the path page links to it', async (page) => {
     await page.goto(`${base}/paths/data-analyst`)
     await page.getByRole('link', { name: /of 365 written, 0 solved/ }).click()
     await page.getByRole('heading', { level: 1, name: 'Daily SQL problems' }).waitFor()
     const days = page.locator('section[aria-labelledby="year-map"] ol > li')
     assert.equal(await days.count(), 365, 'every day of the year is shown')
     const written = await page.getByRole('link', { name: /^Day \d+: .*\. Not tried yet\.$/ }).count()
-    assert.ok(written >= 30, `the first batch is playable (${written})`)
-    assert.equal(await page.getByRole('link', { name: /^Day 365:/ }).count(), 0, 'an unwritten day is not a link')
-    assert.match(await page.locator('main').innerText(), /not written yet/i)
+    assert.equal(written, 365, 'all 365 Data Analyst days are written and playable')
+    assert.equal(await page.getByRole('link', { name: /^Day 365:/ }).count(), 1, 'Day 365 is a link')
     // Filters narrow the list.
     await page.getByLabel('Topic').selectOption('Joins')
     const shown = Number(/^Showing (\d+) of \d+ written problems\.$/.exec(await page.getByRole('status').filter({ hasText: /^Showing/ }).innerText())?.[1])
     assert.ok(shown > 0 && shown < written, `the filter narrows the list (${shown})`)
     assert.equal(await page.locator('section[aria-labelledby="problem-list"] ol > li').count(), shown)
-    // An unwritten day explains itself instead of failing.
+    // The last day says so instead of pointing to a next day.
     await page.goto(`${base}/paths/data-analyst/problems/365`)
-    await page.getByRole('heading', { level: 1, name: 'Day 365 is not written yet' }).waitFor()
+    await page.locator('[data-exercise="da-day-365"]').waitFor()
+    assert.match(await page.locator('main').innerText(), /This is the last day\./)
+    // An unwritten day (a path whose problems are not written yet) explains itself instead of failing.
+    await page.goto(`${base}/paths/data-engineer/problems/1`)
+    await page.getByRole('heading', { level: 1, name: 'Day 1 is not written yet' }).waitFor()
     await page.goto(`${base}/paths/data-analyst/problems/400`)
     await page.locator('main h1').filter({ hasText: /not found/i }).waitFor()
   })
@@ -1028,6 +1031,36 @@ try {
     await page.getByRole('link', { name: /^Next day\s*Day 181: / }).click()
     await page.locator('[data-exercise="da-day-181"]').waitFor()
     assert.ok(textChunks().some((file) => /^_virtual_sql-learner-problem-text-data-analyst-days-181-210-/.test(file)), 'Day 181 loads its own text group')
+    // Day 210 -> Day 211 crosses into the Days 211-240 group (Stage 3 batch 8).
+    await page.goto(`${base}/paths/data-analyst/problems/210`)
+    await page.locator('[data-exercise="da-day-210"]').waitFor()
+    await page.getByRole('link', { name: /^Next day\s*Day 211: / }).click()
+    await page.locator('[data-exercise="da-day-211"]').waitFor()
+    assert.ok(textChunks().some((file) => /^_virtual_sql-learner-problem-text-data-analyst-days-211-240-/.test(file)), 'Day 211 loads its own text group')
+    // Day 240 -> Day 241 crosses into the Days 241-270 group.
+    await page.goto(`${base}/paths/data-analyst/problems/240`)
+    await page.locator('[data-exercise="da-day-240"]').waitFor()
+    await page.getByRole('link', { name: /^Next day\s*Day 241: / }).click()
+    await page.locator('[data-exercise="da-day-241"]').waitFor()
+    assert.ok(textChunks().some((file) => /^_virtual_sql-learner-problem-text-data-analyst-days-241-270-/.test(file)), 'Day 241 loads its own text group')
+    // Day 270 -> Day 271 crosses into the Days 271-300 group.
+    await page.goto(`${base}/paths/data-analyst/problems/270`)
+    await page.locator('[data-exercise="da-day-270"]').waitFor()
+    await page.getByRole('link', { name: /^Next day\s*Day 271: / }).click()
+    await page.locator('[data-exercise="da-day-271"]').waitFor()
+    assert.ok(textChunks().some((file) => /^_virtual_sql-learner-problem-text-data-analyst-days-271-300-/.test(file)), 'Day 271 loads its own text group')
+    // Day 300 -> Day 301 crosses into the Days 301-330 group.
+    await page.goto(`${base}/paths/data-analyst/problems/300`)
+    await page.locator('[data-exercise="da-day-300"]').waitFor()
+    await page.getByRole('link', { name: /^Next day\s*Day 301: / }).click()
+    await page.locator('[data-exercise="da-day-301"]').waitFor()
+    assert.ok(textChunks().some((file) => /^_virtual_sql-learner-problem-text-data-analyst-days-301-330-/.test(file)), 'Day 301 loads its own text group')
+    // Day 330 -> Day 331 crosses into the Days 331-365 group.
+    await page.goto(`${base}/paths/data-analyst/problems/330`)
+    await page.locator('[data-exercise="da-day-330"]').waitFor()
+    await page.getByRole('link', { name: /^Next day\s*Day 331: / }).click()
+    await page.locator('[data-exercise="da-day-331"]').waitFor()
+    assert.ok(textChunks().some((file) => /^_virtual_sql-learner-problem-text-data-analyst-days-331-360-/.test(file)), 'Day 331 loads its own text group')
     assert.equal(solutionChunks().length, 0, `no solutions before an answer is checked or a solution is asked for (${solutionChunks().join(', ')})`)
 
     // The task text lives only in its own text chunk, never in the page bundle; solutions are never in a text chunk.
@@ -1039,22 +1072,62 @@ try {
     }
   })
 
-  await check('daily problems: the topic and difficulty filters cover all 210 problems, including the new topics', async (page) => {
+  await check('daily problems: the topic and difficulty filters cover all 365 problems, including the new topics', async (page) => {
     await page.goto(`${base}/paths/data-analyst/problems`)
     const status = page.getByRole('status').filter({ hasText: /^Showing / })
-    await status.filter({ hasText: 'Showing 210 of 210 written problems.' }).waitFor()
+    await status.filter({ hasText: 'Showing 365 of 365 written problems.' }).waitFor()
     await page.getByLabel('Topic').selectOption('Query performance')
-    await status.filter({ hasText: 'Showing 5 of 210 written problems.' }).waitFor()
+    await status.filter({ hasText: 'Showing 5 of 365 written problems.' }).waitFor()
     const days = await page.locator('section[aria-labelledby="problem-list"] ol > li > span:first-child').allTextContents()
     assert.deepEqual(days.map((text) => text.trim()), ['Day 171', 'Day 172', 'Day 173', 'Day 174', 'Day 175'])
     await page.getByLabel('Difficulty').selectOption('advanced')
-    await status.filter({ hasText: 'Showing 2 of 210 written problems.' }).waitFor()
+    await status.filter({ hasText: 'Showing 2 of 365 written problems.' }).waitFor()
     await page.getByLabel('Topic').selectOption('Statistics')
-    await status.filter({ hasText: 'Showing 7 of 210 written problems.' }).waitFor()
-    // The year map marks Days 1-210 as written and Day 211 as not written yet.
+    await status.filter({ hasText: 'Showing 10 of 365 written problems.' }).waitFor()
+    // Topics added in Stage 3 batch 8.
+    await page.getByLabel('Difficulty').selectOption('')
+    await page.getByLabel('Topic').selectOption('Forecasting and planning')
+    await status.filter({ hasText: 'Showing 5 of 365 written problems.' }).waitFor()
+    await page.getByLabel('Topic').selectOption('Operations')
+    await status.filter({ hasText: 'Showing 5 of 365 written problems.' }).waitFor()
+    // Topics added with Days 241-270.
+    await page.getByLabel('Difficulty').selectOption('')
+    await page.getByLabel('Topic').selectOption('Customer analytics')
+    await status.filter({ hasText: 'Showing 5 of 365 written problems.' }).waitFor()
+    await page.getByLabel('Topic').selectOption('Pricing')
+    await status.filter({ hasText: 'Showing 5 of 365 written problems.' }).waitFor()
+    await page.getByLabel('Topic').selectOption('Supply chain')
+    await status.filter({ hasText: 'Showing 5 of 365 written problems.' }).waitFor()
+    await page.getByLabel('Topic').selectOption('Gaps and islands')
+    await status.filter({ hasText: 'Showing 5 of 365 written problems.' }).waitFor()
+    // Topics added with Days 271-300.
+    await page.getByLabel('Difficulty').selectOption('')
+    await page.getByLabel('Topic').selectOption('Product analytics')
+    await status.filter({ hasText: 'Showing 8 of 365 written problems.' }).waitFor()
+    await page.getByLabel('Topic').selectOption('Workforce analytics')
+    await status.filter({ hasText: 'Showing 5 of 365 written problems.' }).waitFor()
+    // Topics added with Days 301-330.
+    await page.getByLabel('Difficulty').selectOption('')
+    await page.getByLabel('Topic').selectOption('Marketing analytics')
+    await status.filter({ hasText: 'Showing 5 of 365 written problems.' }).waitFor()
+    await page.getByLabel('Topic').selectOption('E-commerce')
+    await status.filter({ hasText: 'Showing 5 of 365 written problems.' }).waitFor()
+    await page.getByLabel('Topic').selectOption('Risk analytics')
+    await status.filter({ hasText: 'Showing 5 of 365 written problems.' }).waitFor()
+    await page.getByLabel('Topic').selectOption('SQL patterns')
+    await status.filter({ hasText: 'Showing 5 of 365 written problems.' }).waitFor()
+    await page.getByLabel('Topic').selectOption('Education analytics')
+    await status.filter({ hasText: 'Showing 5 of 365 written problems.' }).waitFor()
+    // Topics added with Days 331-365.
+    await page.getByLabel('Difficulty').selectOption('')
+    await page.getByLabel('Topic').selectOption('Interview practice')
+    await status.filter({ hasText: 'Showing 10 of 365 written problems.' }).waitFor()
+    await page.getByLabel('Topic').selectOption('Capstone')
+    await status.filter({ hasText: 'Showing 15 of 365 written problems.' }).waitFor()
+    // The year map marks all 365 days as written (there is no Day 366).
     await page.getByLabel('Topic').selectOption('')
-    assert.equal(await page.locator('[aria-label^="Day 210: "]').count(), 1)
-    assert.equal(await page.locator('[aria-label^="Day 211: "]').count(), 0)
+    assert.equal(await page.locator('[aria-label^="Day 365: "]').count(), 1)
+    assert.equal(await page.locator('[aria-label^="Day 366: "]').count(), 0)
   })
 
   // --- Workstream 2: SQL Path projects ----------------------------------------------------------

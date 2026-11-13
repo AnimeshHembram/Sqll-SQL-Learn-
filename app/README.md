@@ -254,8 +254,8 @@ Reset database, or stopping a long query restores the original bookstore data.
 Each career path has a sequence of 365 daily problems in
 `src/content/paths-content/problems/<path-id>/day-<nnn>-<name>.md`, written in the challenge format.
 Days run from Day 1 without gaps; the build fails on a gap, a repeated day or an `order` that differs
-from the file's day. Only the Data Analyst path has problems so far (Days 1 to 210); later days and
-other paths are added in batches, never as filler.
+from the file's day. The Data Analyst path has all 365 days (Days 346 to 360 are three five-day capstones, and
+Days 361 to 365 return to the bookstore); other paths are added in batches, never as filler.
 
 Each 30-day batch adds about 125 kB of problem text. `npm run measure:build` (run after `npm run check`)
 budgets problems from Day 91 on separately, at most 150 kB per 30-day chunk (`scripts/content-budget.json`),
