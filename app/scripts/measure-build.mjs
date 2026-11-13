@@ -15,7 +15,10 @@
  * Daily problems from Day 91 on (added after the baseline) are measured against
  * scripts/content-budget.json instead, per 30-day chunk, and taken out of the
  * dist/ and offline totals; see scripts/content-size.mjs. SQL Path projects are
- * measured there too, per project, against projectLimitBytes.
+ * measured there too, per project, against projectLimitBytes. Offline, that
+ * content is counted module by module (each module must be found exactly once).
+ * content-budget.json also caps each career path's lazy content modules and the
+ * whole offline build (offlineTotalLimitBytes).
  */
 
 import { existsSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs'
@@ -170,10 +173,42 @@ if (existsSync(contentBudgetFile)) {
     else if (!ok) failures.push(`${label} is ${project.projectBytes} bytes, over its limit of ${contentBudget.projectLimitBytes}`)
   }
 }
+// Each career path's content is its own lazy module (plugins/content/pathContent.ts), with a cap per
+// path: its chapters, exercises, quizzes and project summaries (pathContentLimitBytes), and its
+// daily-problem summaries (pathProblemsLimitBytes). Both caps are in content-budget.json.
+const contentBudgetJson = existsSync(contentBudgetFile) ? JSON.parse(readFileSync(contentBudgetFile, 'utf8')) : {}
+for (const [kind, prefix, key] of [
+  ['content', '_virtual_sql-learner-path-content-', 'pathContentLimitBytes'],
+  ['problems', '_virtual_sql-learner-path-problems-', 'pathProblemsLimitBytes'],
+]) {
+  const limit = contentBudgetJson[key]
+  for (const [name, asset] of Object.entries(current.assets)) {
+    if (!name.startsWith(prefix) || !name.endsWith('.js')) continue
+    const pathId = name.slice(prefix.length, -'.js'.length)
+    const ok = limit !== undefined && asset.bytes <= limit
+    rows.push(`${ok ? 'ok  ' : 'OVER'} ${`path ${kind}: ${pathId}`.padEnd(46)} ${kb(asset.bytes).padStart(10)}  limit ${kb(limit ?? 0)}`)
+    if (limit === undefined) failures.push(`scripts/content-budget.json has no ${key}`)
+    else if (!ok) failures.push(`path ${kind} module for ${pathId} is ${asset.bytes} bytes, over its limit of ${limit}`)
+  }
+}
+
+// Offline, the same content is counted module by module (see measureOffline in content-size.mjs).
+let offlineContentBytes = 0
+if (contentChunks.length + projects.length > 0) {
+  const { measureOffline } = await import('./content-size.mjs')
+  const items = [...contentChunks, ...projects]
+  const offline = measureOffline(root, items)
+  failures.push(...offline.failures)
+  offline.results.forEach((result, index) => {
+    const item = items[index]
+    item.offlineBytes = result.offlineBytes
+    offlineContentBytes += result.offlineBytes
+    const label = item.days ? `days ${item.days.join('-')}` : item.id
+    rows.push(`     offline: ${label.padEnd(37)} ${kb(result.offlineBytes).padStart(10)}  (${item.moduleFiles.length} modules ${kb(result.moduleBytes)}, summaries ${kb(result.summaryBytes)}, ${result.summaryFound} found)`)
+  })
+}
 const distContentBytes =
   contentChunks.reduce((sum, chunk) => sum + chunk.chunkBytes, 0) + projects.reduce((sum, project) => sum + project.projectBytes, 0)
-const offlineContentBytes =
-  contentChunks.reduce((sum, chunk) => sum + chunk.offlineBytes, 0) + projects.reduce((sum, project) => sum + project.offlineBytes, 0)
 const distAppBytes = current.distTotalBytes - distContentBytes
 const offlineAppBytes = current.offline.indexHtmlBytes - offlineContentBytes
 
@@ -198,6 +233,15 @@ if (!totalOk) failures.push(`dist/ is ${distAppBytes} bytes without budgeted con
 const htmlOk = offlineAppBytes <= budget.offlineIndexHtml.limitBytes
 rows.push(`${htmlOk ? 'ok  ' : 'OVER'} ${'dist-offline/index.html'.padEnd(46)} ${String(budget.offlineIndexHtml.baselineBytes).padStart(10)} → ${String(offlineAppBytes).padStart(10)} bytes (limit +${budget.offlineIndexHtml.limitPercent}%)${withoutContent(offlineAppBytes, current.offline.indexHtmlBytes)}`)
 if (!htmlOk) failures.push(`dist-offline/index.html is ${offlineAppBytes} bytes without budgeted content, over its limit of ${budget.offlineIndexHtml.limitBytes}`)
+
+// The whole offline build, content included, has an absolute cap (offlineTotalLimitBytes, approved in
+// Workstream 3): the single file has to stay small enough to open quickly from disk.
+if (contentBudgetJson.offlineTotalLimitBytes !== undefined) {
+  const limit = contentBudgetJson.offlineTotalLimitBytes
+  const ok = current.offline.totalBytes <= limit
+  rows.push(`${ok ? 'ok  ' : 'OVER'} ${'dist-offline/ total (all content)'.padEnd(46)} ${String(current.offline.totalBytes).padStart(10)} bytes  limit ${limit} (${((100 * current.offline.totalBytes) / limit).toFixed(1)}% used)`)
+  if (!ok) failures.push(`dist-offline/ is ${current.offline.totalBytes} bytes, over its limit of ${limit}`)
+} else if (existsSync(contentBudgetFile)) failures.push('scripts/content-budget.json has no offlineTotalLimitBytes')
 
 const sameFiles = JSON.stringify(current.offline.files) === JSON.stringify(budget.offlineFiles)
 rows.push(`${sameFiles ? 'ok  ' : 'DIFF'} ${'dist-offline/ files'.padEnd(46)} ${current.offline.files.join(', ')}`)

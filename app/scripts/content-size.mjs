@@ -9,8 +9,12 @@
  * which stay exactly as recorded.
  *
  * Per chunk: its solution file, its 30-day problem-text file (both hold nothing but that chunk's
- * content) and the problem summaries found verbatim in the problem list. Offline, where everything
- * is one file, only text found verbatim is counted.
+ * content) and the problem summaries found verbatim in the problem list.
+ *
+ * Offline, where everything is one file, the same content modules are counted whole: each module's
+ * literal (its complete exported value, from the dist file) must be found exactly once in
+ * dist-offline/index.html, or the check fails. The summaries, which live in modules shared with
+ * other content, are then credited where found verbatim in the rest of the file (see measureOffline).
  *
  * Only bytes that can be found verbatim in the build are taken out, so app code can never hide
  * behind content: object keys, punctuation, expected-result cells and strings shorter than
@@ -19,7 +23,7 @@
  * SQL Path projects (Workstream 2) are measured the same way, per project, against their own cap
  * (projectLimitBytes): the project's text file, its solution file and its dataset file (all three hold
  * nothing but that project's content), plus its summaries found verbatim in the path content.
- * Offline, the brief, task text, solutions and dataset found verbatim are counted.
+ * Offline, its three modules are counted whole and its summaries where found verbatim, as above.
  */
 
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs'
@@ -70,7 +74,6 @@ function creditFields(text, fields) {
 const publicFields = (problem) => [problem.summary, problem.descriptionHtml, problem.starterSql, ...problem.hints, ...problem.objectives]
 /** Fields that stay in the problem list every SQL Path page loads (the rest is in the 30-day text files). */
 const listFields = (problem) => [problem.summary]
-const solutionFields = (solution) => [solution.sql, solution.explanationHtml, ...solution.alternatives]
 
 /**
  * @param root the app folder
@@ -92,8 +95,6 @@ export async function measureContent(root, firstDay) {
   const assetsDir = path.join(root, 'dist', 'assets')
   const assetFiles = readdirSync(assetsDir)
   const scripts = assetFiles.filter((file) => file.endsWith('.js'))
-  const offlineHtml = path.join(root, 'dist-offline', 'index.html')
-  const offlineText = existsSync(offlineHtml) ? readFileSync(offlineHtml, 'utf8') : ''
 
   const chunks = new Map()
   for (const problem of problems) {
@@ -121,10 +122,6 @@ export async function measureContent(root, firstDay) {
       const credit = creditFields(readFileSync(path.join(assetsDir, file), 'utf8'), textFile ? chunk.problems.flatMap(listFields) : fields)
       if (credit.bytes > publicCredit.bytes) publicCredit = credit
     }
-    const offlineCredit = creditFields(offlineText, [
-      ...fields,
-      ...chunk.problems.flatMap((problem) => solutionFields(content.solutions[problem.id])),
-    ])
     results.push({
       groupId: chunk.groupId,
       days: [chunk.problems[0].day, chunk.problems[chunk.problems.length - 1].day],
@@ -135,17 +132,14 @@ export async function measureContent(root, firstDay) {
       publicBytes: textFileBytes + publicCredit.bytes,
       publicFound: `${publicCredit.found}/${publicCredit.total}`,
       chunkBytes: solutionFileBytes + textFileBytes + publicCredit.bytes,
-      offlineBytes: offlineCredit.bytes,
-      offlineFound: `${offlineCredit.found}/${offlineCredit.total}`,
+      // Counted offline by measureOffline: the modules whole, the summaries where found verbatim.
+      moduleFiles: [solutionFile, textFile].filter(Boolean),
+      summaryFields: chunk.problems.flatMap(listFields),
     })
   }
   return results.sort((a, b) => a.days[0] - b.days[0])
 }
 
-const briefFields = (text) => [
-  ...text.sections.map((section) => section.html),
-  ...Object.values(text.tasks).flatMap((task) => [task.descriptionHtml, task.starterSql, ...task.hints, ...task.objectives]),
-]
 const projectSummaryFields = (summary) => [summary.summary, ...summary.milestones.map((milestone) => milestone.goal), ...summary.tasks.map((task) => task.summary)]
 
 /** Measures each written SQL Path project. */
@@ -163,8 +157,6 @@ export async function measureProjects(root) {
   const assetsDir = path.join(root, 'dist', 'assets')
   const assetFiles = readdirSync(assetsDir)
   const scripts = assetFiles.filter((file) => file.endsWith('.js'))
-  const offlineHtml = path.join(root, 'dist-offline', 'index.html')
-  const offlineText = existsSync(offlineHtml) ? readFileSync(offlineHtml, 'utf8') : ''
   const fileFor = (prefix) => assetFiles.find((file) => file.startsWith(prefix) && file.endsWith('.js') && /^-[A-Za-z0-9_-]{8}\.js$/.test(file.slice(prefix.length - 1)))
   const sizeOf = (file) => (file ? statSync(path.join(assetsDir, file)).size : 0)
 
@@ -182,13 +174,6 @@ export async function measureProjects(root) {
       const credit = creditFields(readFileSync(path.join(assetsDir, file), 'utf8'), projectSummaryFields(summary))
       if (credit.bytes > summaryCredit.bytes) summaryCredit = credit
     }
-    const datasetText = readFileSync(path.join(contentDir, 'datasets', `${summary.dataset}.sql`), 'utf8')
-    const offlineCredit = creditFields(offlineText, [
-      ...briefFields(text),
-      ...projectSummaryFields(summary),
-      ...summary.tasks.flatMap((task) => solutionFields(content.solutions[task.id])),
-      ...(datasetFile ? [datasetText] : []),
-    ])
     const textBytes = sizeOf(textFile)
     const solutionBytes = sizeOf(solutionFile)
     const datasetBytes = sizeOf(datasetFile)
@@ -204,9 +189,86 @@ export async function measureProjects(root) {
       summaryBytes: summaryCredit.bytes,
       summaryFound: `${summaryCredit.found}/${summaryCredit.total}`,
       projectBytes: textBytes + solutionBytes + datasetBytes + summaryCredit.bytes,
-      offlineBytes: offlineCredit.bytes,
-      offlineFound: `${offlineCredit.found}/${offlineCredit.total}`,
+      // Counted offline by measureOffline: the modules whole, the summaries where found verbatim.
+      moduleFiles: [textFile, solutionFile, datasetFile].filter(Boolean),
+      summaryFields: projectSummaryFields(summary),
     })
   }
   return results
+}
+
+/**
+ * The complete exported value of a content module, as the dist file writes it: everything between
+ * "const e=" (or var/let) and ";export{". A content module holds nothing else.
+ */
+export function moduleLiteral(code) {
+  const start = /^(?:const|var|let) [\w$]+=/.exec(code)
+  const end = code.lastIndexOf(';export{')
+  if (!start || end <= start[0].length) return undefined
+  return code.slice(start[0].length, end)
+}
+
+/**
+ * Counts budgeted content in dist-offline/index.html, per item (a 30-day chunk or a project).
+ *
+ * Each of an item's module files is counted whole: its literal must occur exactly once in the offline
+ * file, written as in the dist file or escaped inside a string (the offline build embeds the worker,
+ * which holds the solutions and datasets, as a template literal). A literal
+ * found zero or several times is reported in `failures`, so a change in how the offline build writes
+ * content can never quietly shrink or inflate the credit. Literals already counted are then taken out
+ * of the text, and each item's summaries (strings of MIN_FIELD_LENGTH or more) are credited where found
+ * verbatim in what is left.
+ *
+ * @param items [{ moduleFiles: string[], summaryFields: string[] }]
+ * @returns { results: [{ moduleBytes, summaryBytes, offlineBytes, summaryFound }], failures: string[] }
+ */
+export function measureOffline(root, items) {
+  const assetsDir = path.join(root, 'dist', 'assets')
+  const offlineHtml = path.join(root, 'dist-offline', 'index.html')
+  const failures = []
+  if (!existsSync(offlineHtml)) return { results: items.map(() => ({ moduleBytes: 0, summaryBytes: 0, offlineBytes: 0, summaryFound: '0/0' })), failures: ['dist-offline/index.html is missing'] }
+  const offlineText = readFileSync(offlineHtml, 'utf8')
+  const ranges = []
+  const moduleBytes = items.map((item) => {
+    let bytes = 0
+    for (const file of item.moduleFiles) {
+      const literal = moduleLiteral(readFileSync(path.join(assetsDir, file), 'utf8'))
+      if (!literal) {
+        failures.push(`${file} is not a content module (no "const e=…;export{")`)
+        continue
+      }
+      const counts = [...new Set([literal, ...encodings(literal)])].map((encoded) => ({ encoded, times: countOccurrences(offlineText, encoded) }))
+      const found = counts.filter((entry) => entry.times > 0)
+      if (found.length !== 1 || found[0].times !== 1) {
+        const times = counts.reduce((sum, entry) => sum + entry.times, 0)
+        failures.push(`${file}: its content was found ${times} times in dist-offline/index.html (expected exactly once)`)
+        continue
+      }
+      const start = offlineText.indexOf(found[0].encoded)
+      ranges.push([start, start + found[0].encoded.length])
+      bytes += Buffer.byteLength(found[0].encoded)
+    }
+    return bytes
+  })
+  ranges.sort((a, b) => a[0] - b[0])
+  for (let index = 1; index < ranges.length; index += 1) {
+    if (ranges[index][0] < ranges[index - 1][1]) failures.push('Two content modules overlap in dist-offline/index.html')
+  }
+  let rest = ''
+  let at = 0
+  for (const [start, end] of ranges) {
+    rest += offlineText.slice(at, start) + '\u0000'
+    at = end
+  }
+  rest += offlineText.slice(at)
+  const results = items.map((item, index) => {
+    const credit = creditFields(rest, item.summaryFields)
+    return {
+      moduleBytes: moduleBytes[index],
+      summaryBytes: credit.bytes,
+      offlineBytes: moduleBytes[index] + credit.bytes,
+      summaryFound: `${credit.found}/${credit.total}`,
+    }
+  })
+  return { results, failures }
 }

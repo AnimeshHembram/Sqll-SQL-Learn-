@@ -5,6 +5,16 @@ import { loadContent } from './loadContent.ts'
 import { loadPathContent } from './loadPathContent.ts'
 import { loadQuizzes } from './loadQuizzes.ts'
 import { PROBLEM_TEXT_GROUP_PREFIX, PROBLEM_TEXT_INDEX_MODULE_ID, problemTextGroups, splitProblem } from './problemText.ts'
+import {
+  PATH_CONTENT_PREFIX,
+  PATH_INDEX_MODULE_ID,
+  PATH_PROBLEMS_PREFIX,
+  pathContentId,
+  pathContentModule,
+  pathIndexModule,
+  pathProblemsId,
+  pathProblemsModule,
+} from './pathContent.ts'
 import { PROJECT_INDEX_MODULE_ID, PROJECT_TEXT_PREFIX, projectKey, projectTextId } from './projectText.ts'
 import { CHALLENGE_SOLUTIONS_MODULE_ID, SOLUTION_GROUP_PREFIX, solutionGroups } from './solutionGroups.ts'
 
@@ -24,8 +34,10 @@ import { CHALLENGE_SOLUTIONS_MODULE_ID, SOLUTION_GROUP_PREFIX, solutionGroups } 
  * downloaded when one of its answers is first checked, and the page asks the
  * worker for a solution only when the learner chooses to see it.
  *
- * Daily problems are split the same way for the page: `virtual:sql-learner-path-content`
- * lists every problem without its text, and `virtual:sql-learner-problem-text-index`
+ * SQL Path content is split by career path: `virtual:sql-learner-path-content` is a small index
+ * and each path's chapters, exercises, quizzes and summaries are their own module, loaded by that
+ * path's pages (see pathContent.ts). Daily problems are split further: the path content lists every
+ * problem without its text, and `virtual:sql-learner-problem-text-index`
  * loads the task, starter query and hints 30 days at a time (see problemText.ts).
  * Projects likewise: their summaries are in the path content, and each project's brief and task
  * text is its own module behind `virtual:sql-learner-project-index` (see projectText.ts).
@@ -33,8 +45,8 @@ import { CHALLENGE_SOLUTIONS_MODULE_ID, SOLUTION_GROUP_PREFIX, solutionGroups } 
 
 export const CONTENT_MODULE_ID = 'virtual:sql-learner-content'
 export const SOLUTION_INDEX_MODULE_ID = 'virtual:sql-learner-solution-index'
-/** SQL Path chapters, exercises (without solutions) and quizzes, imported only by the SQL Path pages. */
-export const PATH_CONTENT_MODULE_ID = 'virtual:sql-learner-path-content'
+/** The SQL Path content index, imported only by the SQL Path pages (see pathContent.ts). */
+export const PATH_CONTENT_MODULE_ID = PATH_INDEX_MODULE_ID
 const RESOLVED_ID = '\0' + CONTENT_MODULE_ID
 const RESOLVED_INDEX_ID = '\0' + SOLUTION_INDEX_MODULE_ID
 const isSolutionGroup = (id: string) => id === CHALLENGE_SOLUTIONS_MODULE_ID || id.startsWith(SOLUTION_GROUP_PREFIX)
@@ -43,6 +55,7 @@ const RESOLVED_TEXT_INDEX_ID = '\0' + PROBLEM_TEXT_INDEX_MODULE_ID
 const isTextGroup = (id: string) => id.startsWith(PROBLEM_TEXT_GROUP_PREFIX) && id !== PROBLEM_TEXT_INDEX_MODULE_ID
 const RESOLVED_PROJECT_INDEX_ID = '\0' + PROJECT_INDEX_MODULE_ID
 const isProjectText = (id: string) => id.startsWith(PROJECT_TEXT_PREFIX) && id !== PROJECT_INDEX_MODULE_ID
+const isPathContent = (id: string) => id.startsWith(PATH_CONTENT_PREFIX) || id.startsWith(PATH_PROBLEMS_PREFIX)
 
 interface ContentPluginOptions {
   /** Absolute path to the folder that holds the module folders. */
@@ -111,7 +124,7 @@ export function contentPlugin(options: ContentPluginOptions): Plugin {
     // The content modules, the solution index and every solution group (the worker's modules live in the same graph in dev).
     for (const module of graph.idToModuleMap.values()) {
       const id = module.id ?? ''
-      const resolvedGroup = id.startsWith('\0') && (isSolutionGroup(id.slice(1)) || isTextGroup(id.slice(1)) || isProjectText(id.slice(1)))
+      const resolvedGroup = id.startsWith('\0') && (isSolutionGroup(id.slice(1)) || isTextGroup(id.slice(1)) || isProjectText(id.slice(1)) || isPathContent(id.slice(1)))
       const index = [RESOLVED_ID, RESOLVED_INDEX_ID, RESOLVED_PATH_ID, RESOLVED_TEXT_INDEX_ID, RESOLVED_PROJECT_INDEX_ID].includes(id)
       if (index || resolvedGroup) {
         graph.invalidateModule(module)
@@ -132,6 +145,7 @@ export function contentPlugin(options: ContentPluginOptions): Plugin {
       if (isTextGroup(id)) return '\0' + id
       if (id === PROJECT_INDEX_MODULE_ID) return RESOLVED_PROJECT_INDEX_ID
       if (isProjectText(id)) return '\0' + id
+      if (isPathContent(id)) return '\0' + id
       return undefined
     },
 
@@ -139,8 +153,9 @@ export function contentPlugin(options: ContentPluginOptions): Plugin {
       const groupId = id.startsWith('\0') && isSolutionGroup(id.slice(1)) ? id.slice(1) : null
       const textGroupId = id.startsWith('\0') && isTextGroup(id.slice(1)) ? id.slice(1) : null
       const projectTextModule = id.startsWith('\0') && isProjectText(id.slice(1)) ? id.slice(1) : null
+      const pathContentModuleId = id.startsWith('\0') && isPathContent(id.slice(1)) ? id.slice(1) : null
       const known = [RESOLVED_ID, RESOLVED_INDEX_ID, RESOLVED_PATH_ID, RESOLVED_TEXT_INDEX_ID, RESOLVED_PROJECT_INDEX_ID].includes(id)
-      if (!known && !groupId && !textGroupId && !projectTextModule) return undefined
+      if (!known && !groupId && !textGroupId && !projectTextModule && !pathContentModuleId) return undefined
       const { modules, challenges, solutions, quizzes, pathModules, pathExercises, pathQuizzes, pathProblems, pathProjects, pathProjectTasks, errors, files } =
         loadAllContent(options)
       for (const file of files) this.addWatchFile(file)
@@ -183,16 +198,17 @@ export function contentPlugin(options: ContentPluginOptions): Plugin {
         if (!project) this.error(`There is no project "${projectTextModule}".`)
         return `export const projectText = ${JSON.stringify(project.text)};`
       }
-      if (id === RESOLVED_PATH_ID) {
-        return [
-          `export const pathModules = ${JSON.stringify(pathModules)};`,
-          `export const pathExercises = ${JSON.stringify(pathExercises)};`,
-          `export const pathQuizzes = ${JSON.stringify(pathQuizzes)};`,
-          // Without the task text, starter query and hints: those load per 30 days (problemText.ts).
-          `export const pathProblems = ${JSON.stringify(pathProblems.map((problem) => splitProblem(problem).summary))};`,
-          // Without the brief and task text: those load with the project (projectText.ts).
-          `export const pathProjects = ${JSON.stringify(pathProjects.map((project) => project.summary))};`,
-        ].join('\n')
+      const pathContent = { modules: pathModules, exercises: pathExercises, quizzes: pathQuizzes, problems: pathProblems, projects: pathProjects }
+      if (id === RESOLVED_PATH_ID) return pathIndexModule(pathContent)
+      if (pathContentModuleId?.startsWith(PATH_PROBLEMS_PREFIX)) {
+        const pathId = pathContentModuleId.slice(PATH_PROBLEMS_PREFIX.length)
+        if (pathProblemsId(pathId) !== pathContentModuleId) this.error(`There is no path problem list "${pathContentModuleId}".`)
+        return pathProblemsModule(pathContent, pathId)
+      }
+      if (pathContentModuleId) {
+        const pathId = pathContentModuleId.slice(PATH_CONTENT_PREFIX.length)
+        if (pathContentId(pathId) !== pathContentModuleId) this.error(`There is no path content "${pathContentModuleId}".`)
+        return pathContentModule(pathContent, pathId)
       }
       return [
         `export const modules = ${JSON.stringify(modules)};`,

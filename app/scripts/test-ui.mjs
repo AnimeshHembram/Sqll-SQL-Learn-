@@ -540,6 +540,57 @@ try {
     await page.waitForURL(/\/paths\/data-analyst$/)
   })
 
+  await check('sql path: each page loads only its own career path, and only the part it needs', async (firstPage, context) => {
+    let page = firstPage
+    await page.goto(`${base}/paths/data-analyst`)
+    await page.getByRole('button', { name: 'Make this my current path' }).click()
+    await page.getByRole('status').filter({ hasText: 'Data Analyst is now your current path.' }).waitFor()
+    await page.close()
+    page = await context.newPage()
+    const requested = []
+    page.on('request', (request) => requested.push(request.url().replace(/^.*\/assets\//, '')))
+    const pathChunks = () => requested.filter((file) => /^_virtual_sql-learner-path-(content|problems)-/.test(file))
+    // The path list shows the current path's progress from the small index, without loading any path's content.
+    await page.goto(`${base}/paths`)
+    await page.getByText(/0 of 15 ready chapters complete/).first().waitFor()
+    assert.deepEqual(pathChunks(), [], `the path list loads no path content (${pathChunks().join(', ')})`)
+    // A path page loads that path's chapters and project summaries, not its problem list.
+    await page.goto(`${base}/paths/data-analyst`)
+    await page.getByRole('heading', { level: 1, name: 'Data Analyst' }).waitFor()
+    await page.getByText(/of 365 written, 0 solved/).first().waitFor()
+    assert.deepEqual(pathChunks().map((file) => file.replace(/-[A-Za-z0-9_-]{8}\.js$/, '')), ['_virtual_sql-learner-path-content-data-analyst'])
+    // The problem list is its own module, loaded by the problem pages.
+    await page.goto(`${base}/paths/data-analyst/problems`)
+    await page.getByRole('link', { name: /^Day 1: Customer contact list/ }).waitFor()
+    assert.ok(pathChunks().some((file) => file.startsWith('_virtual_sql-learner-path-problems-data-analyst-')), 'the problem list was loaded')
+    // A path with nothing written yet loads nothing and still shows its roadmap.
+    const before = pathChunks().length
+    await page.goto(`${base}/paths/data-engineer`)
+    await page.getByRole('heading', { level: 1, name: 'Data Engineer' }).waitFor()
+    assert.equal(pathChunks().length, before, 'a path with no written content loads no content module')
+  })
+
+  await check('sql path: a path whose content cannot be downloaded says so, and Try again loads it', async (page, context) => {
+    await context.route(/_virtual_sql-learner-path-content-data-analyst-/, (route) => route.abort())
+    await page.goto(`${base}/paths/data-analyst/conditional-logic`)
+    await page.getByRole('alert').filter({ hasText: 'This path could not be loaded. Check your connection and try again.' }).waitFor()
+    await context.unroute(/_virtual_sql-learner-path-content-data-analyst-/)
+    await page.getByRole('button', { name: 'Try again' }).click()
+    // Chromium remembers a failed module download for the rest of the visit, so trying again in place
+    // can fail once more; the page then offers a reload, which loads the path.
+    const chapterHeading = page.getByRole('heading', { level: 1, name: /Conditional logic/i })
+    const reload = page.getByRole('button', { name: 'Reload page' })
+    await chapterHeading.or(reload).waitFor()
+    if (await reload.isVisible()) {
+      assert.match(await page.getByRole('alert').innerText(), /still could not be loaded/)
+      await reload.click()
+    }
+    await chapterHeading.waitFor()
+    assert.equal(await page.getByRole('alert').filter({ hasText: 'could not be loaded' }).count(), 0)
+    // The blocked download logs a console error; that one is expected here.
+    errors.splice(0, errors.length, ...errors.filter((error) => !error.startsWith('sql path: a path whose content cannot be downloaded')))
+  })
+
   await check('sql path: planned chapters are labelled and never count; ready chapters follow Learn SQL lessons', async (page) => {
     await page.goto(`${base}/paths/data-analyst`)
     await page.evaluate((progress) => localStorage.setItem('sql-learner:progress:v1', JSON.stringify(progress)), lessonsDone(...FUNDAMENTALS, 'summarising-data/counting-rows'))

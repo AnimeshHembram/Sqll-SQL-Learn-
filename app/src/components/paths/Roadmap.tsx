@@ -2,7 +2,7 @@ import { useId } from 'react'
 import { Link } from 'react-router'
 import { findLesson, lessonPath } from '../../content/index.ts'
 import type { CareerPath, PathChapter } from '../../content/paths/catalog.ts'
-import { chapterExercises, chapterUrl } from '../../content/paths/chapters.ts'
+import { chapterExerciseCount, chapterUrl } from '../../content/paths/chapters.ts'
 import { chapterStatus, stageChapterCount, type PathContext } from '../../features/paths/pathSummary.ts'
 import type { ProgressData } from '../../features/progress/progressModel.ts'
 import { isLessonComplete } from '../../features/progress/progressSummary.ts'
@@ -98,7 +98,7 @@ function ChapterItem({ pathId, chapter, progress, context }: ChapterItemProps) {
       <p className={styles.chapterSummary}>{chapter.summary}</p>
       {written ? (
         <p className={styles.writtenNote}>
-          Chapter with runnable examples, {chapterExercises(pathId, chapter.id).length} exercises and a quiz.
+          Chapter with runnable examples, {chapterExerciseCount(pathId, chapter.id)} exercises and a quiz.
         </p>
       ) : planned ? (
         <p className={styles.plannedNote}>Not written yet. It does not count towards your progress.</p>

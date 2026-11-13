@@ -4,5 +4,9 @@
   "firstDay": 91,
   "chunkLimitBytes": 150000,
   "projectNote": "Added in Workstream 2 (SQL Path projects), as proposed in Step A: each project (its text file, solution file, dataset file and summaries found verbatim) is measured against projectLimitBytes and taken out of the dist/ and offline totals, like daily problems. App-code budgets in size-budget.json are unchanged.",
-  "projectLimitBytes": 200000
+  "projectLimitBytes": 200000,
+  "offlineNote": "Added in Workstream 3, Phase 1, as approved: offline, budgeted content (Day 91+ chunks and projects) is counted module by module (each module's complete literal, found exactly once in dist-offline/index.html; summaries where found verbatim). The whole offline build, content included, must stay within offlineTotalLimitBytes. Each career path's content is its own lazy module, capped per path: pathContentLimitBytes (chapters, exercises, quizzes, project summaries) and pathProblemsLimitBytes (daily-problem summaries).",
+  "offlineTotalLimitBytes": 7500000,
+  "pathContentLimitBytes": 400000,
+  "pathProblemsLimitBytes": 200000
 }

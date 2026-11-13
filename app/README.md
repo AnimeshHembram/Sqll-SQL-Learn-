@@ -260,6 +260,10 @@ other paths are added in batches, never as filler.
 Each 30-day batch adds about 125 kB of problem text. `npm run measure:build` (run after `npm run check`)
 budgets problems from Day 91 on separately, at most 150 kB per 30-day chunk (`scripts/content-budget.json`),
 and takes them out of the dist/ and offline totals, whose limits in `scripts/size-budget.json` are unchanged.
+Offline, that content is counted module by module: each content module's complete text must be found
+exactly once in `dist-offline/index.html`, or the check fails. The whole offline build, content included,
+must also stay under 7.5 MB (`offlineTotalLimitBytes`), and `npm run test:offline` checks that the first
+page, a career path and a daily problem each open from disk in under 3 seconds (it prints the timings).
 
 - **One path per problem.** A problem belongs to exactly one path (its folder) and its progress is
   saved in that path's own record in `paths:v1`, keyed by the problem id (`da-day-001`). Problems
@@ -268,6 +272,10 @@ and takes them out of the dist/ and offline totals, whose limits in `scripts/siz
   nothing and takes nothing away. The next suggested problem is the first unsolved day.
 - **Checked like challenges.** Answers run in the challenge worker on a fresh read-only copy of the
   dataset and are compared with the reference query, which never reaches the page.
+- **Each path loads on its own.** The path list needs only a small index; a path's pages load that
+  path's content (chapters, exercises, quizzes, project summaries) and its problem pages load its
+  problem list, so no page downloads another career path (`plugins/content/pathContent.ts`). Each is
+  capped per path in `scripts/content-budget.json` (400 kB and 200 kB).
 - **Solutions load on demand.** Only the worker holds solutions, split into groups: Learn SQL
   challenges, each path's chapter exercises, and each path's daily problems 30 days at a time
   (`plugins/content/solutionGroups.ts`). A group is downloaded the first time one of its answers is

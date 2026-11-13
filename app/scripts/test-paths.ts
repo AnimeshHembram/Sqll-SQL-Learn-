@@ -23,6 +23,7 @@ import { PROBLEM_TEXT_FIELDS, problemTextGroupId, problemTextGroups, splitProble
 import { DAYS_PER_CHUNK, problemGroupId, projectGroupId, solutionGroups } from '../plugins/content/solutionGroups.ts'
 import { PROJECT_SECTIONS } from '../plugins/content/loadProjects.ts'
 import { projectTextId, splitTask } from '../plugins/content/projectText.ts'
+import { pathContentId, pathContentModule, pathIndex, pathIndexModule, pathProblemsId, pathProblemsModule, writtenPathIds } from '../plugins/content/pathContent.ts'
 import {
   buildProgressFile,
   describePathProgress,
@@ -1066,4 +1067,66 @@ test('projects: the Vidya Loop dataset has the documented tables, rows and track
   assert.equal(count("SELECT COUNT(*) FROM orders AS o WHERE NOT EXISTS (SELECT 1 FROM events AS e WHERE e.session_id = o.session_id AND e.step = 'purchase')"), 0, 'every order has a purchase event')
   assert.equal(count('SELECT COUNT(*) FROM (SELECT visitor_id FROM sessions GROUP BY visitor_id HAVING COUNT(DISTINCT device) > 1)'), 0, 'one device per visitor')
   db.close()
+})
+
+// --- Workstream 3: SQL Path content loads per career path ------------------------------------------
+
+const pathInput = {
+  modules: content.pathModules,
+  exercises: content.pathExercises,
+  quizzes: content.pathQuizzes,
+  problems: content.pathProblems,
+  projects: content.pathProjects,
+}
+/** The exports of a generated module ("export const name = <JSON>;" per line). */
+function moduleExports(code: string): Record<string, unknown> {
+  const exports: Record<string, unknown> = {}
+  for (const line of code.split('\n')) {
+    const match = /^export const (\w+) = (.*);$/.exec(line)
+    if (match) exports[match[1]] = JSON.parse(match[2])
+  }
+  return exports
+}
+
+test('path content is split per career path: the index, one content module and one problem list per written path', () => {
+  assert.deepEqual(writtenPathIds(pathInput), ['data-analyst'], 'only Data Analyst has written content so far')
+  const index = pathIndex(pathInput)
+  const code = pathIndexModule(pathInput)
+  assert.ok(code.includes(`import(${JSON.stringify(pathContentId('data-analyst'))})`), 'the index loads the path content on demand')
+  assert.ok(code.includes(`import(${JSON.stringify(pathProblemsId('data-analyst'))})`), 'the index loads the problem list on demand')
+  assert.ok(!/descriptionHtml|starterSql|"sql"|explanationHtml/.test(code), 'the index holds no exercise, problem or solution text')
+
+  const parts = moduleExports(pathContentModule(pathInput, 'data-analyst'))
+  assert.deepEqual(Object.keys(parts).sort(), ['pathExercises', 'pathModules', 'pathProjects', 'pathQuizzes'])
+  assert.deepEqual(parts.pathExercises, content.pathExercises.filter((exercise) => exercise.pathId === 'data-analyst'))
+  assert.deepEqual(parts.pathQuizzes, content.pathQuizzes.filter((quiz) => quiz.pathId === 'data-analyst'))
+  assert.deepEqual(
+    parts.pathProjects,
+    content.pathProjects.filter(({ summary }) => summary.pathId === 'data-analyst').map(({ summary }) => summary),
+    'project summaries only: brief and task text load with the project',
+  )
+
+  // The index agrees with the content it stands in for, so progress on the path list is the same.
+  const modules = parts.pathModules as { lessons: { id: string }[] }[]
+  assert.deepEqual(Object.keys(index['data-analyst'].chapters), modules[0].lessons.map((lesson) => lesson.id))
+  for (const [chapterId, chapter] of Object.entries(index['data-analyst'].chapters)) {
+    assert.deepEqual(chapter.exerciseIds, content.pathExercises.filter((exercise) => exercise.chapterId === chapterId).map((exercise) => exercise.id))
+    assert.equal(chapter.quizSize, content.pathQuizzes.find((quiz) => quiz.id === chapterId)?.questions.length ?? 0)
+  }
+  assert.deepEqual(index['data-analyst'].problemIds, content.pathProblems.map((problem) => problem.id))
+
+  const problems = moduleExports(pathProblemsModule(pathInput, 'data-analyst')).pathProblems as Record<string, unknown>[]
+  assert.deepEqual(problems, content.pathProblems.map((problem) => splitProblem(problem).summary), 'the problem list holds every summary, Day 1 first')
+  for (const problem of problems) {
+    for (const field of PROBLEM_TEXT_FIELDS) assert.ok(!(field in problem), `${problem.id}: ${field} loads with the problem text, not the list`)
+  }
+})
+
+test('a path with no written content has nothing to load', () => {
+  const index = pathIndex(pathInput)
+  for (const other of CAREER_PATHS.filter((path) => path.id !== 'data-analyst')) {
+    assert.equal(index[other.id], undefined, `${other.id} is not in the index`)
+    assert.equal(moduleExports(pathContentModule(pathInput, other.id)).pathExercises instanceof Array, true)
+    assert.deepEqual(moduleExports(pathContentModule(pathInput, other.id)).pathExercises, [])
+  }
 })

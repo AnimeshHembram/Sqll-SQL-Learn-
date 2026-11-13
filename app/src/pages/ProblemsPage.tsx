@@ -22,6 +22,7 @@ import {
 } from '../features/paths/problemSummary.ts'
 import { NotFoundPage } from './NotFoundPage.tsx'
 import styles from './ProblemsPage.module.css'
+import { PathContentGate } from '../components/paths/PathContentGate.tsx'
 
 const STATE_LABELS: Record<ProblemState, string> = {
   solved: 'Solved',
@@ -32,7 +33,16 @@ const STATE_LABELS: Record<ProblemState, string> = {
 
 const LEVEL_LABELS: Record<Level, string> = { beginner: 'Beginner', intermediate: 'Intermediate', advanced: 'Advanced' }
 
+/** The page, once the path's content is loaded (PathContentGate). */
 export function ProblemsPage() {
+  return (
+    <PathContentGate part="problems">
+      <ProblemsPageContent />
+    </PathContentGate>
+  )
+}
+
+function ProblemsPageContent() {
   const { pathId = '' } = useParams()
   const path = findPath(pathId)
   const record = usePathProgress().paths[pathId]

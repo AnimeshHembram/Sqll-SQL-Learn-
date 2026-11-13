@@ -10,7 +10,7 @@ import { PageHeader } from '../components/ui/PageHeader.tsx'
 import { ProgressBar } from '../components/ui/ProgressBar.tsx'
 import { lessonPath } from '../content/index.ts'
 import { PROBLEMS_PER_PATH, findPath } from '../content/paths/catalog.ts'
-import { chapterUrl, pathContext, pathProblemList, problemsUrl } from '../content/paths/chapters.ts'
+import { chapterUrl, pathContext, pathProblemIds, problemsUrl } from '../content/paths/chapters.ts'
 import { pathProjectList, projectUrl } from '../content/paths/projects.ts'
 import { choosePath, usePathProgress } from '../features/paths/pathStore.ts'
 import { nextStep, pathChapterCount } from '../features/paths/pathSummary.ts'
@@ -19,10 +19,20 @@ import { projectDuration, projectProgress, projectStatus } from '../features/pat
 import { useProgress } from '../features/progress/progressStore.ts'
 import { NotFoundPage } from './NotFoundPage.tsx'
 import styles from './PathPage.module.css'
+import { PathContentGate } from '../components/paths/PathContentGate.tsx'
 
 const PLANNED = { state: 'planned', steps: { done: 0, total: 0 }, kind: 'planned' } as const
 
+/** The page, once the path's content is loaded (PathContentGate). */
 export function PathPage() {
+  return (
+    <PathContentGate>
+      <PathPageContent />
+    </PathContentGate>
+  )
+}
+
+function PathPageContent() {
   const { pathId = '' } = useParams()
   const path = findPath(pathId)
   const progress = useProgress()
@@ -38,7 +48,7 @@ export function PathPage() {
   const chapters = pathChapterCount(path, progress, context)
   const next = nextStep(path, progress, context)
   const previous = paths.activePathId && !isCurrent ? findPath(paths.activePathId) : undefined
-  const problemIds = pathProblemList(path.id).map((problem) => problem.id)
+  const problemIds = pathProblemIds(path.id)
   const problemsSolved = solvedCount(problemIds, record)
   const writtenProjects = pathProjectList(path.id)
   const projectsComplete = writtenProjects.filter((project) => record?.projects[project.id]?.completedAt).length

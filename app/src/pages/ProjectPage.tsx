@@ -20,8 +20,18 @@ import { isTaskSolved, projectDuration, projectProgress } from '../features/path
 import { challengeEngine } from '../features/sql/sqlEngine.ts'
 import { NotFoundPage } from './NotFoundPage.tsx'
 import styles from './ProjectPage.module.css'
+import { PathContentGate } from '../components/paths/PathContentGate.tsx'
 
+/** The page, once the path's content is loaded (PathContentGate). */
 export function ProjectPage() {
+  return (
+    <PathContentGate>
+      <ProjectPageContent />
+    </PathContentGate>
+  )
+}
+
+function ProjectPageContent() {
   const { pathId = '', projectId = '' } = useParams()
   const path = findPath(pathId)
   const project = path ? findProject(path.id, projectId) : undefined

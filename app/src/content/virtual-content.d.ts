@@ -12,15 +12,14 @@ declare module 'virtual:sql-learner-solution-index' {
   export const solutionLoaders: Record<string, () => Promise<{ solutions: unknown }>>
 }
 
-// SQL Path chapters, exercises (without solutions) and quizzes, loaded only by the SQL Path pages.
+// The SQL Path content index, loaded only by the SQL Path pages (see plugins/content/pathContent.ts).
 declare module 'virtual:sql-learner-path-content' {
-  export const pathModules: unknown
-  export const pathExercises: unknown
-  export const pathQuizzes: unknown
-  /** The light part of every daily problem (no task text, starter query or hints). */
-  export const pathProblems: unknown
-  /** Written projects without their brief and task text. */
-  export const pathProjects: unknown
+  /** Per path: each written chapter's exercise ids and quiz size, and its daily-problem ids. */
+  export const pathIndex: unknown
+  /** Per path: loads its chapters, exercises, quizzes and project summaries. */
+  export const pathContentLoaders: Record<string, () => Promise<unknown>>
+  /** Per path with daily problems: loads their summaries. */
+  export const pathProblemLoaders: Record<string, () => Promise<unknown>>
 }
 
 // Daily-problem text, one group of 30 days at a time (see plugins/content/problemText.ts).

@@ -21,8 +21,18 @@ import { useSqlEngine } from '../features/sql/useSqlEngine.ts'
 import { NotFoundPage } from './NotFoundPage.tsx'
 import { QuestionCard, type Answer } from './QuizPage.tsx'
 import styles from './ChapterPage.module.css'
+import { PathContentGate } from '../components/paths/PathContentGate.tsx'
 
+/** The page, once the path's content is loaded (PathContentGate). */
 export function ChapterPage() {
+  return (
+    <PathContentGate>
+      <ChapterPageContent />
+    </PathContentGate>
+  )
+}
+
+function ChapterPageContent() {
   const { pathId = '', chapterId = '' } = useParams()
   const path = findPath(pathId)
   const content = path ? findChapterContent(path.id, chapterId) : undefined

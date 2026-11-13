@@ -286,9 +286,17 @@ never shows values from the expected result. Daily problems also show the expect
 (column names and number of rows) before an attempt, never its values.
 
 Daily problems are split once more for the page: the problem list (titles, topics, levels, the
-expected result's shape) loads with the SQL Path pages, while each problem's task, starter query,
+expected result's shape) loads with the path's problem pages, while each problem's task, starter query,
 hints and objectives load with their 30-day group when the problem is opened (see
 `plugins/content/problemText.ts`). The offline build includes every group inside its one file.
+
+SQL Path content loads per career path (`plugins/content/pathContent.ts`). Every SQL Path page gets a
+small index (each written chapter's exercise ids and quiz size, and each path's problem ids), which is
+enough for progress on the path list. A path's chapter, project and roadmap pages load that path's
+content module (chapters, exercises, quizzes, project summaries), and its problem pages load its
+problem list; other paths are never downloaded. Writing a new path's content adds that path's own
+modules and does not make any other path's pages bigger. `npm run measure:build` caps each path's
+content module (400 kB) and problem list (200 kB) in `scripts/content-budget.json`.
 
 ### SQL Path projects
 

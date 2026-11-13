@@ -7,7 +7,9 @@
  * Starts from app/index.html, as a person would, which forwards to the
  * self-contained build in dist-offline/, and goes through lessons, practice,
  * challenges, quizzes, saved progress and settings. Also checks the message
- * app/index.html shows when dist-offline/ has not been built.
+ * app/index.html shows when dist-offline/ has not been built, and times how
+ * long the first page, a career path and a daily problem take to open (under
+ * 3 seconds each).
  *
  * Needs Playwright with Chromium, like test:ui:
  *
@@ -315,6 +317,65 @@ try {
       errors.filter((error) => !/main\.tsx|Failed to load resource/.test(error)),
       [],
     )
+  })
+
+  // Loading target (Workstream 3): opened from disk in a fresh browser profile (nothing cached), the
+  // app shows its first page, a career path and a daily problem in under 3 seconds. Each is timed
+  // from the navigation to the page being usable, three times; the median must be under the limit.
+  // The SQL engine's start-up is measured and reported too; pages show their text before it is ready.
+  await check('loading: from disk, the dashboard, a career path and a daily problem each open in under 3 seconds', async () => {
+    const LIMIT_MS = 3000
+    const RUNS = 3
+    const targets = [
+      {
+        name: 'dashboard (app/index.html, forwarded)',
+        url: entryUrl,
+        ready: async (tab) => {
+          await tab.waitForURL((url) => url.href.startsWith(appUrl))
+          await tab.getByRole('heading', { level: 1 }).first().waitFor({ timeout: 15000 })
+        },
+      },
+      {
+        name: 'career path (Data Analyst roadmap)',
+        url: `${appUrl}#/paths/data-analyst`,
+        ready: (tab) => tab.getByRole('heading', { level: 1, name: 'Data Analyst' }).waitFor({ timeout: 15000 }),
+      },
+      {
+        name: 'daily problem (Day 210 with its text)',
+        url: `${appUrl}#/paths/data-analyst/problems/210`,
+        ready: async (tab) => {
+          await tab.getByRole('heading', { level: 1 }).first().waitFor({ timeout: 15000 })
+          await tab.waitForFunction(() => !document.body.innerText.includes('Loading Day'), null, { timeout: 15000 })
+        },
+      },
+      {
+        name: 'SQL engine ready (practice, reported only)',
+        url: `${appUrl}#/practice`,
+        reportOnly: true,
+        ready: (tab) => tab.waitForFunction(() => document.body.innerText.includes('Ready. SQLite'), null, { timeout: 15000 }),
+      },
+    ]
+    const median = (values) => [...values].sort((a, b) => a - b)[Math.floor(values.length / 2)]
+    const slow = []
+    for (const target of targets) {
+      const times = []
+      for (let run = 0; run < RUNS; run += 1) {
+        const fresh = await browser.newContext({ viewport: { width: 1280, height: 900 } })
+        try {
+          const tab = await fresh.newPage()
+          const started = performance.now()
+          await tab.goto(target.url)
+          await target.ready(tab)
+          times.push(Math.round(performance.now() - started))
+        } finally {
+          await fresh.close()
+        }
+      }
+      const value = median(times)
+      console.log(`   ${target.name}: median ${value} ms (runs ${times.join(', ')} ms)${target.reportOnly ? '' : `, limit ${LIMIT_MS} ms`}`)
+      if (!target.reportOnly && value >= LIMIT_MS) slow.push(`${target.name}: ${value} ms`)
+    }
+    assert.deepEqual(slow, [], `over the ${LIMIT_MS} ms loading target`)
   })
 
   await check('without a build, app/index.html explains how to make one instead of staying blank', async () => {

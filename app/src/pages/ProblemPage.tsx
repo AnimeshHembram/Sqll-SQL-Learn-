@@ -24,10 +24,20 @@ import { challengeEngine } from '../features/sql/sqlEngine.ts'
 import { useSqlEngine } from '../features/sql/useSqlEngine.ts'
 import { NotFoundPage } from './NotFoundPage.tsx'
 import styles from './ProblemPage.module.css'
+import { PathContentGate } from '../components/paths/PathContentGate.tsx'
 
 const LEVEL_LABELS = { beginner: 'Beginner', intermediate: 'Intermediate', advanced: 'Advanced' } as const
 
+/** The page, once the path's content is loaded (PathContentGate). */
 export function ProblemPage() {
+  return (
+    <PathContentGate part="problems">
+      <ProblemPageContent />
+    </PathContentGate>
+  )
+}
+
+function ProblemPageContent() {
   const { pathId = '', day = '' } = useParams()
   const path = findPath(pathId)
   const number = /^\d{1,3}$/.test(day) ? Number(day) : NaN

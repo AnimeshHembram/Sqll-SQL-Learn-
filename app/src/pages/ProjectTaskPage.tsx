@@ -23,10 +23,20 @@ import { challengeEngine } from '../features/sql/sqlEngine.ts'
 import { useSqlEngine } from '../features/sql/useSqlEngine.ts'
 import { NotFoundPage } from './NotFoundPage.tsx'
 import styles from './ProjectPage.module.css'
+import { PathContentGate } from '../components/paths/PathContentGate.tsx'
 
 const LEVEL_LABELS = { beginner: 'Beginner', intermediate: 'Intermediate', advanced: 'Advanced' } as const
 
+/** The page, once the path's content is loaded (PathContentGate). */
 export function ProjectTaskPage() {
+  return (
+    <PathContentGate>
+      <ProjectTaskPageContent />
+    </PathContentGate>
+  )
+}
+
+function ProjectTaskPageContent() {
   const { pathId = '', projectId = '', step = '' } = useParams()
   const path = findPath(pathId)
   const project = path ? findProject(path.id, projectId) : undefined

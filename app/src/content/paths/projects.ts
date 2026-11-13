@@ -1,12 +1,12 @@
 import { projectLoaders } from 'virtual:sql-learner-project-index'
 import type { PathProjectSummary, ProjectTask, ProjectTaskSummary, ProjectText } from '../types.ts'
 import { pathUrl } from './catalog.ts'
-// Read through chapters.ts, so the SQL Path content stays one module for the build.
-import { PROJECTS } from './chapters.ts'
+// Project summaries arrive with the path's content (chapters.ts).
+import { pathProjectSummaries } from './chapters.ts'
 
 /**
- * Written SQL Path projects. Every SQL Path page knows each project's milestones and task list
- * (from virtual:sql-learner-path-content); the brief and the task text load with the project's
+ * Written SQL Path projects. A path's pages know each project's milestones and task list (from
+ * the path's content, chapters.ts); the brief and the task text load with the project's
  * own pages, once per project (plugins/content/projectText.ts). Solutions stay in the worker.
  */
 
@@ -14,11 +14,11 @@ const loaders = projectLoaders as Record<string, () => Promise<{ projectText: un
 const cache = new Map<string, Promise<ProjectText>>()
 
 export function pathProjectList(pathId: string): readonly PathProjectSummary[] {
-  return PROJECTS.filter((project) => project.pathId === pathId)
+  return pathProjectSummaries(pathId)
 }
 
 export function findProject(pathId: string, projectId: string): PathProjectSummary | undefined {
-  return PROJECTS.find((project) => project.pathId === pathId && project.id === projectId)
+  return pathProjectSummaries(pathId).find((project) => project.id === projectId)
 }
 
 export function projectUrl(pathId: string, projectId: string): string {
